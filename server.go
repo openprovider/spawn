@@ -139,7 +139,13 @@ func NewServer(name string) (*Server, error) {
 }
 
 // Run the server with the handlers and the specified modes
-func (server *Server) Run(nodes []Node, roundRobin, byPriority bool, check HealthCheck) (string, error) {
+func (server *Server) Run(
+	hostPort, apiHostPort string,
+	handler RequestHandler,
+	nodes []Node,
+	roundRobin, byPriority bool,
+	check HealthCheck,
+) (string, error) {
 
 	// Init the Nodes update channel
 	server.Nodes.update = make(chan nodeJob, MaxJobs)
@@ -182,11 +188,6 @@ func (server *Server) Run(nodes []Node, roundRobin, byPriority bool, check Healt
 	server.DELETE("/nodes/:host", server.Nodes.deleteAllRecordsByHost)
 	server.DELETE("/nodes", server.Nodes.deleteAllRecords)
 
-	return server.Name + " loaded successfully", nil
-}
-
-// ListenAndServe listen and serve the service and the API handlers
-func (server *Server) ListenAndServe(hostPort, apiHostPort string, handler RequestHandler) {
 	go server.Listen(apiHostPort)
 	go func() {
 		p := new(proxy)
@@ -199,6 +200,8 @@ func (server *Server) ListenAndServe(hostPort, apiHostPort string, handler Reque
 			errlog.Fatal(err)
 		}
 	}()
+
+	return server.Name + " loaded successfully", nil
 }
 
 // Shutdown closes the server graceful
