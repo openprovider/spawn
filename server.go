@@ -168,6 +168,10 @@ func (server *Server) Run(nodes []Node, roundRobin, byPriority bool, check Healt
 	// The info handler returns a system status of the application
 	server.GET("/info", infoHandler)
 
+	// Lists methods, which display how to use API
+	server.GET("/list", displayAllMethods)
+	server.GET("/list/nodes", displayNodeMethods)
+
 	// Init API methods for the Nodes
 	server.GET("/nodes/:host/:port", server.Nodes.getRecord)
 	server.GET("/nodes/:host", server.Nodes.getAllRecordsByHost)
