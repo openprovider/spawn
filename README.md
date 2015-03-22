@@ -13,14 +13,15 @@ How it works? Let's see the scheme:
 
 ![Scheme](https://github.com/takama/spawn/blob/master/scheme/scheme.png)
 
+All GET requests from the Client will reproduce with a selected node. A node for GET requests will be selected
+by specified 'round-robin' and 'by priority' mode if they are active. All updates requests (PUT, POST, DELETE)
+will be repeated to every node or will be accumulated in the corresponded queue if the node is unreachable.
+
 If temporarily switch off the node 3 from the process, due to maintenance or network loss, the updates worker
 of the node 3 will be stopped automatically and all updates of the node 3 would begin to accumulate in the queue.
 After the end of maintenance work all accumulated updates will posted in the node 3. 
 
-Embedded health checker makes possible to recover processing automatically. All GET requests will reproduce
-with a selected node. A node for GET requests will be selected by specified 'round-robin' and 'by priority' mode
-if they are active. All updates requests (PUT, POST, DELETE) will be repeated to every node or will be accumulated
-in the corresponded queue if the node is unreachable.
+Embedded health checker makes possible to recover processing automatically. 
 
 The service has API to control of the nodes. So, if you setup the Spawn API on localhost:7118, you can use query
 below to show what nodes are configured:
