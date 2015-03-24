@@ -4,9 +4,9 @@ import (
 	"testing"
 )
 
-func test(t *testing.T, expected bool, message string) {
+func test(t *testing.T, expected bool, messages ...interface{}) {
 	if !expected {
-		t.Error(message)
+		t.Error(messages)
 	}
 }
 

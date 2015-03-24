@@ -1,0 +1,37 @@
+[
+    {
+        "host": "localhost",
+        "port": 7019,
+        "priority": 0,
+        "active": true,
+        "maintenance": false
+    },
+    {
+        "host": "localhost",
+        "port": 7021,
+        "priority": -2,
+        "active": true,
+        "maintenance": false
+    },
+    {
+        "host": "localhost",
+        "port": 7017,
+        "priority": 1,
+        "active": true,
+        "maintenance": false
+    },
+    {
+        "host": "localhost",
+        "port": 7018,
+        "priority": 2,
+        "active": true,
+        "maintenance": true
+    },
+    {
+        "host": "localhost",
+        "port": 7020,
+        "priority": -1,
+        "active": false,
+        "maintenance": true
+    }
+]

@@ -76,6 +76,9 @@ func (service *Service) Run() (string, error) {
 		return "Initialize service:", err
 	}
 	status, err := server.Run(
+		serviceHostPort,
+		apiHostPort,
+		nil,
 		service.Nodes,
 		service.QueryMode.RoundRobin,
 		service.QueryMode.ByPriority,
@@ -85,7 +88,6 @@ func (service *Service) Run() (string, error) {
 		return status, err
 	}
 	stdlog.Println(status)
-	server.ListenAndServe(serviceHostPort, apiHostPort, nil)
 
 	// Logs for what is host&port used
 	stdlog.Printf("%s started on %s\n", Description, serviceHostPort)
