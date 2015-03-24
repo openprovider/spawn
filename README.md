@@ -157,6 +157,7 @@ Options:
 
 ## Todo
 
+- More of Tests coverage and benchmarks
 - Synchronization between the nodes
 - Exponential Back-off
 - support of HTTPS
