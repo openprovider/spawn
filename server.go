@@ -107,9 +107,6 @@ type HealthCheck struct {
 	Pattern string `json:"regexp"`
 }
 
-// Data is a shortcut
-type Data map[string]interface{}
-
 // NewServer creates a new server which contains the nodes/queues
 func NewServer(name string) (*Server, error) {
 
