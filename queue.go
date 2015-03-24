@@ -28,20 +28,20 @@ type queue struct {
 	quit     chan struct{}
 }
 
-// queueJob produce task with query/response and status (done)
+// queueJob produce a task which contains query/response and status (done)
 type queueJob struct {
 	done   bool
 	query  chan []byte
 	answer chan *http.Response
 }
 
-// queueBundle is a bundle for the queue data (queries, responses, etc)
+// queueBundle is the bundle for the queue data (queries, responses, etc)
 type queueBundle struct {
 	mutex   sync.Mutex
 	records map[string]*queue
 }
 
-// check a queue, if it does not exist, create it
+// check the queue, if it does not exist, create it
 func (bundle *queueBundle) check(id string) (*queue, bool) {
 	bundle.mutex.Lock()
 	defer bundle.mutex.Unlock()
@@ -89,7 +89,7 @@ func (bundle *queueBundle) remove(id string, timeout time.Duration) {
 	}
 }
 
-// getReponse method is waiting a response or get the false value by timeout
+// getReponse method is waiting a response or get the false value if timeout
 func getResponse(q *queue, timeout time.Duration) bool {
 	ticker := time.NewTimer(time.Second * timeout)
 

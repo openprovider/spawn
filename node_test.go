@@ -60,7 +60,7 @@ func TestNodes(t *testing.T) {
 		test(t, loadedNode == node,
 			"Loaded node has incorrect values, expected", node, "got", loadedNode)
 		id := fmt.Sprintf("%s:%d", loadedNode.Host, loadedNode.Port)
-		q, ok := server.queue.check(id)
+		q, ok := server.queues.check(id)
 		if !loadedNode.Active {
 			test(t, !ok, "Expected the queue does not exist, got", q)
 		} else {
@@ -112,7 +112,7 @@ func TestNodes(t *testing.T) {
 	// check the queues of the nodes, must be absent
 	for _, node := range loadedNodes {
 		id := fmt.Sprintf("%s:%d", node.Host, node.Port)
-		q, ok := server.queue.check(id)
+		q, ok := server.queues.check(id)
 		test(t, !ok, "Expected the queue does not exist, got", q)
 	}
 }
