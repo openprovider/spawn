@@ -109,9 +109,9 @@ func getResponse(q *queue, timeout time.Duration) bool {
 	q.ask <- struct{}{}
 
 	select {
-	// Exit by timeout if a response does not get (worker is not alive)
+	// Exit by timeout if the response does not get (worker is not alive)
 	case <-ticker.C:
-		// a unwanted ask sweeps if exists
+		// all unwanted asks sweep if exist
 		for {
 			select {
 			case <-q.ask:
@@ -121,7 +121,7 @@ func getResponse(q *queue, timeout time.Duration) bool {
 			break
 		}
 		return false
-	// Exit after a response received
+	// Exit after the response has been received
 	case <-q.response:
 		return true
 	}
