@@ -24,19 +24,19 @@ import (
 
 const (
 
-	// VERSION - service version
-	VERSION = "0.1.1"
+	// VERSION - current version of the service
+	VERSION = "0.1.4"
 
-	// DATE - service revision date
-	DATE = "2015-03-23T00:17:17Z"
+	// DATE - revision date of the service
+	DATE = "2015-03-24T22:17:17Z"
 
 	// MaxSignals - maximum count of update signals
 	MaxSignals = 1000
 
-	// MaxJobs - maximum count of update jobs for every bandle
+	// MaxJobs - maximum count of update jobs for every bundle
 	MaxJobs = 100000
 
-	// DefaultTimeout is a timeout for worker's response
+	// DefaultTimeout is a timeout for the worker's response
 	DefaultTimeout time.Duration = 10
 
 	// HTTP methods, which should be queued
@@ -62,7 +62,7 @@ type Server struct {
 	// Server name/description
 	Name string
 
-	// Node Bundle contains Node records
+	// Node Bundle contains the Node records
 	Nodes *NodeBundle
 	// contains filtered or unexported fields
 
@@ -90,14 +90,14 @@ type Server struct {
 	// nodes health check
 	check HealthCheck
 
-	// Queue Bundle contains Queue records
-	queue *queueBundle
+	// Queue Bundle contains the queue records
+	queues *queueBundle
 }
 
-// HealthCheck are parameters for checking every node
+// HealthCheck contains parameters which used for checking node
 type HealthCheck struct {
 
-	// health check time of the nodes in seconds
+	// health check time of the node in seconds
 	Seconds time.Duration `json:"seconds"`
 
 	// url which will be checked
@@ -110,7 +110,7 @@ type HealthCheck struct {
 // Data is a shortcut
 type Data map[string]interface{}
 
-// NewServer creates a new server with the config and the bundles of records
+// NewServer creates a new server which contains the nodes/queues
 func NewServer(name string) (*Server, error) {
 
 	// Init the router
@@ -137,21 +137,21 @@ func NewServer(name string) (*Server, error) {
 	}
 
 	// Create and init queues bundle
-	server.queue = &queueBundle{records: make(map[string]*queue)}
+	server.queues = &queueBundle{records: make(map[string]*queue)}
 
 	return server, nil
 }
 
-// Run the server with the handlers and the specified modes
+// Run the server, init the handlers, init the specified modes
 // If handler RequestHandler is not defined used default handler
-// with standard handling of the requests and the responses
+// with standard handling of the requests/responses
 func (server *Server) Run(
 	hostPort, apiHostPort string,
 	handler RequestHandler,
 	nodes []Node,
 	roundRobin, byPriority bool,
 	check HealthCheck,
-) (string, error) {
+) (status string, err error) {
 
 	// Init the Nodes update channel
 	server.Nodes.update = make(chan nodeJob, MaxJobs)
@@ -161,20 +161,24 @@ func (server *Server) Run(
 
 	// Init the Nodes settings
 	if !server.Nodes.SetAll(nodes) {
-		return server.Name + " is not loaded",
-			errors.New("The nodes settings in config have incorrect values")
+		status = server.Name + " is not loaded"
+		err = errors.New("The nodes settings in config have incorrect values")
+		return
 	}
 
+	// if used round-robin mode
 	if roundRobin {
 		stdlog.Println(server.Name, "will used 'round-robin' mode")
 		server.roundRobin = roundRobin
 	}
+
+	// if used by-priority mode
 	if byPriority {
 		stdlog.Println("Nodes will queried according to priority")
 		server.byPriority = byPriority
 	}
 
-	// Init health check settings
+	// Init a health check settings
 	server.check = check
 
 	// The info handler returns a system status of the application
@@ -207,11 +211,13 @@ func (server *Server) Run(
 		}
 	}()
 
-	return server.Name + " loaded successfully", nil
+	status = server.Name + " loaded successfully"
+
+	return
 }
 
 // Shutdown closes the server graceful
-func (server *Server) Shutdown() (string, error) {
+func (server *Server) Shutdown() (status string, err error) {
 
 	// Set timer to wait one minute
 	timeout := time.NewTimer(time.Second * 30)
@@ -229,15 +235,16 @@ func (server *Server) Shutdown() (string, error) {
 	// sends a 'quit' signal
 	server.quit <- struct{}{}
 
-	closeMessage := server.Name + " connections closed"
+	status = server.Name + " connections closed"
 	select {
 
 	// Exit by timeout if jobs did not done
 	case <-timeout.C:
-		return closeMessage, errors.New("timeout")
+		err = errors.New("timeout")
+		return
 	// Exit after all jobs done
 	case <-server.response:
-		return closeMessage, nil
+		return
 	}
 }
 
@@ -322,7 +329,7 @@ func (server *Server) processGET(request *http.Request) *http.Response {
 				// Prepare next host
 				server.Nodes.TwistRing()
 
-				if server.checkHost(request.URL.Host) {
+				if server.checkNode(request.URL.Host) {
 					response, err := http.DefaultTransport.RoundTrip(request)
 					if err == nil {
 						// If response is sucess, return
@@ -348,7 +355,7 @@ func (server *Server) processGET(request *http.Request) *http.Response {
 
 					// The host is active and is not in maintenance
 					request.URL.Host = fmt.Sprintf("%s:%d", node.Host, node.Port)
-					if server.checkHost(request.URL.Host) {
+					if server.checkNode(request.URL.Host) {
 						response, err := http.DefaultTransport.RoundTrip(request)
 						if err == nil {
 							// If response is sucess, return
@@ -392,7 +399,7 @@ func (server *Server) processUpdate(request *http.Request) *http.Response {
 				}
 				job.query <- proxyRequestData
 
-				queue, _ := server.queue.check(host)
+				queue, _ := server.queues.check(host)
 				queue.jobs <- job
 				queue.task <- doJobTask
 			}
@@ -429,9 +436,9 @@ func (server *Server) worker(q *queue) {
 			switch task {
 			case doJobTask:
 
-				// check host
+				// check the node
 				for {
-					if server.checkHost(q.id) {
+					if server.checkNode(q.id) {
 						break
 					}
 					stdlog.Println("Node", q.id, "does not ready for updates")
@@ -448,7 +455,7 @@ func (server *Server) worker(q *queue) {
 						q.response <- struct{}{}
 					}
 				}
-				// if it is alive, post data
+				// if the node is alive, post data
 				job := <-q.jobs
 				data := <-job.query
 				if response, err := dispatchRequest(q.id, data); err != nil {
@@ -471,8 +478,8 @@ func (server *Server) worker(q *queue) {
 	}
 }
 
-// check host
-func (server *Server) checkHost(host string) bool {
+// check the node
+func (server *Server) checkNode(host string) bool {
 	response, err := http.Get(protocolHTTP + "://" + host + server.check.URL)
 	if err != nil {
 		return false
@@ -494,7 +501,7 @@ func (server *Server) checkHost(host string) bool {
 }
 
 // Reproduce request to specified node and capture response
-func dispatchRequest(id string, data []byte) (*http.Response, error) {
+func dispatchRequest(host string, data []byte) (*http.Response, error) {
 	reader := bufio.NewReader(bytes.NewBuffer(data))
 	request, err := http.ReadRequest(reader)
 	if err != nil {
@@ -502,7 +509,7 @@ func dispatchRequest(id string, data []byte) (*http.Response, error) {
 	}
 	request.Body = ioutil.NopCloser(reader)
 	request.URL.Scheme = protocolHTTP
-	request.URL.Host = id
+	request.URL.Host = host
 
 	response, err := http.DefaultTransport.RoundTrip(request)
 	if err != nil {
