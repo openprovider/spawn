@@ -67,7 +67,7 @@ func (bundle *queueBundle) check(id string) (*queue, bool) {
 }
 
 // remove the queue and stops the worker
-func (bundle *queueBundle) remove(id string) {
+func (bundle *queueBundle) remove(id string, timeout time.Duration) {
 	bundle.mutex.Lock()
 	defer bundle.mutex.Unlock()
 
@@ -75,7 +75,7 @@ func (bundle *queueBundle) remove(id string) {
 	if q, ok := bundle.records[id]; ok {
 
 		// if the worker is alive
-		if getResponse(q, ResponseTimeout) {
+		if getResponse(q, timeout) {
 
 			// send a 'quit' command to the worker
 			q.quit <- struct{}{}
@@ -90,8 +90,8 @@ func (bundle *queueBundle) remove(id string) {
 }
 
 // getReponse method is waiting a response or get the false value by timeout
-func getResponse(q *queue, second time.Duration) bool {
-	timeout := time.NewTimer(time.Second * second)
+func getResponse(q *queue, timeout time.Duration) bool {
+	ticker := time.NewTimer(time.Second * timeout)
 
 	// a unwanted ask/response sweeps if exist
 	for {
@@ -110,7 +110,7 @@ func getResponse(q *queue, second time.Duration) bool {
 
 	select {
 	// Exit by timeout if a response does not get (worker is not alive)
-	case <-timeout.C:
+	case <-ticker.C:
 		// a unwanted ask sweeps if exists
 		for {
 			select {

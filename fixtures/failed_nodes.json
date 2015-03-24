@@ -1,0 +1,23 @@
+[
+    {
+        "host": "localhost",
+        "port": 0,
+        "priority": 1,
+        "active": true,
+        "maintenance": false
+    },
+    {
+        "host": "",
+        "port": 7018,
+        "priority": 2,
+        "active": true,
+        "maintenance": false
+    },
+    {
+        "host": "/host",
+        "port": 7018,
+        "priority": 2,
+        "active": true,
+        "maintenance": false
+    }
+]

@@ -36,8 +36,8 @@ const (
 	// MaxJobs - maximum count of update jobs for every bandle
 	MaxJobs = 100000
 
-	// ResponseTimeout is a timeout for worker's response
-	ResponseTimeout time.Duration = 10
+	// DefaultTimeout is a timeout for worker's response
+	DefaultTimeout time.Duration = 10
 
 	// HTTP methods, which should be queued
 	protocolHTTP = "http"
@@ -71,6 +71,9 @@ type Server struct {
 
 	// Response signal channel
 	response chan struct{}
+
+	// responseTimeout is a timeout for worker's response
+	responseTimeout time.Duration
 
 	// job signal channel
 	job chan int
@@ -119,11 +122,12 @@ func NewServer(name string) (*Server, error) {
 
 	// Init the Server
 	server := &Server{
-		Name:     name,
-		Router:   r,
-		response: make(chan struct{}),
-		job:      make(chan int, MaxSignals),
-		quit:     make(chan struct{}),
+		Name:            name,
+		Router:          r,
+		responseTimeout: DefaultTimeout,
+		response:        make(chan struct{}),
+		job:             make(chan int, MaxSignals),
+		quit:            make(chan struct{}),
 	}
 
 	// Create and init nodes bundle
@@ -139,7 +143,15 @@ func NewServer(name string) (*Server, error) {
 }
 
 // Run the server with the handlers and the specified modes
-func (server *Server) Run(nodes []Node, roundRobin, byPriority bool, check HealthCheck) (string, error) {
+// If handler RequestHandler is not defined used default handler
+// with standard handling of the requests and the responses
+func (server *Server) Run(
+	hostPort, apiHostPort string,
+	handler RequestHandler,
+	nodes []Node,
+	roundRobin, byPriority bool,
+	check HealthCheck,
+) (string, error) {
 
 	// Init the Nodes update channel
 	server.Nodes.update = make(chan nodeJob, MaxJobs)
@@ -182,11 +194,6 @@ func (server *Server) Run(nodes []Node, roundRobin, byPriority bool, check Healt
 	server.DELETE("/nodes/:host", server.Nodes.deleteAllRecordsByHost)
 	server.DELETE("/nodes", server.Nodes.deleteAllRecords)
 
-	return server.Name + " loaded successfully", nil
-}
-
-// ListenAndServe listen and serve the service and the API handlers
-func (server *Server) ListenAndServe(hostPort, apiHostPort string, handler RequestHandler) {
 	go server.Listen(apiHostPort)
 	go func() {
 		p := new(proxy)
@@ -199,6 +206,8 @@ func (server *Server) ListenAndServe(hostPort, apiHostPort string, handler Reque
 			errlog.Fatal(err)
 		}
 	}()
+
+	return server.Name + " loaded successfully", nil
 }
 
 // Shutdown closes the server graceful
@@ -388,7 +397,7 @@ func (server *Server) processUpdate(request *http.Request) *http.Response {
 				queue.task <- doJobTask
 			}
 		}
-		timeout := time.NewTimer(time.Second * ResponseTimeout)
+		timeout := time.NewTimer(time.Second * server.responseTimeout)
 		for {
 			select {
 			case response = <-answer:
