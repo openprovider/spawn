@@ -295,7 +295,7 @@ func (bundle *NodeBundle) updateRecords() {
 				delete(bundle.records, data.record.Host)
 			}
 			// remove update channel
-			bundle.queue.remove(queueID)
+			bundle.queue.remove(queueID, bundle.Server.responseTimeout)
 		}
 		if data.isUpdate {
 			queueID := fmt.Sprintf("%s:%d", data.record.Host, data.record.Port)
@@ -318,7 +318,7 @@ func (bundle *NodeBundle) updateRecords() {
 				} else {
 					if data.record.Maintenance {
 						// if the worker is alive
-						if getResponse(queue, ResponseTimeout) {
+						if getResponse(queue, bundle.Server.responseTimeout) {
 
 							// send a 'quit' command to the worker
 							queue.quit <- struct{}{}
@@ -328,7 +328,7 @@ func (bundle *NodeBundle) updateRecords() {
 						}
 					} else {
 						// if the worker is not alive
-						if !getResponse(queue, ResponseTimeout) {
+						if !getResponse(queue, bundle.Server.responseTimeout) {
 							go bundle.Server.worker(queue)
 						}
 					}
@@ -336,7 +336,7 @@ func (bundle *NodeBundle) updateRecords() {
 			} else {
 				// Remove a channel if it is not active
 				// There are removing the worker also
-				bundle.queue.remove(queueID)
+				bundle.queue.remove(queueID, bundle.Server.responseTimeout)
 			}
 		}
 	}
