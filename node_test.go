@@ -1,23 +1,20 @@
 package spawn
 
 import (
-	"bufio"
-	"encoding/json"
 	"fmt"
-	"os"
 	"sort"
 	"testing"
 	"time"
 )
 
 func TestNodes(t *testing.T) {
-	var nodes []Node
-
 	// set timeout 1 second for testing
 	var timeout time.Duration = 1
 
 	// create new server
 	server, err := NewServer("test")
+	test(t, err == nil, "Expected create a new server, got", err)
+
 	server.byPriority = true
 	server.roundRobin = true
 	server.Nodes.update = make(chan nodeJob, MaxJobs)
@@ -27,7 +24,7 @@ func TestNodes(t *testing.T) {
 	go server.manage()
 
 	// load failed nodes with incorect host's names and port's values
-	err = loadFixtures("fixtures/failed_nodes.json", &nodes)
+	nodes, err := loadFixtures("fixtures/failed_nodes.json")
 	test(t, err == nil, "Expected loading of failed fixtures, got", err)
 
 	// Try to load failed nodes data
@@ -37,7 +34,7 @@ func TestNodes(t *testing.T) {
 	}
 
 	// loads correct nodes data from a file
-	err = loadFixtures("fixtures/nodes.json", &nodes)
+	nodes, err = loadFixtures("fixtures/nodes.json")
 	test(t, err == nil, "Expected loading of fixtures, got", err)
 
 	// sort the nodes by priority
@@ -52,7 +49,7 @@ func TestNodes(t *testing.T) {
 	test(t, len(expectedPriority) == len(nodes),
 		"Expected count of priority", len(expectedPriority), "got", len(nodes))
 
-	// Wait of response after all will be updated
+	// Wait of response after the nodes will be updated
 	server.job <- responseSignal
 	<-server.response
 
@@ -63,7 +60,7 @@ func TestNodes(t *testing.T) {
 		test(t, loadedNode == node,
 			"Loaded node has incorrect values, expected", node, "got", loadedNode)
 		id := fmt.Sprintf("%s:%d", loadedNode.Host, loadedNode.Port)
-		q, ok := server.queue.check(id)
+		q, ok := server.queues.check(id)
 		if !loadedNode.Active {
 			test(t, !ok, "Expected the queue does not exist, got", q)
 		} else {
@@ -108,32 +105,14 @@ func TestNodes(t *testing.T) {
 			"Expected the node has been deleted got has not")
 	}
 
-	// Wait of response after all will be updated
+	// Wait of response after the nodes will be updated
 	server.job <- responseSignal
 	<-server.response
 
 	// check the queues of the nodes, must be absent
 	for _, node := range loadedNodes {
 		id := fmt.Sprintf("%s:%d", node.Host, node.Port)
-		q, ok := server.queue.check(id)
+		q, ok := server.queues.check(id)
 		test(t, !ok, "Expected the queue does not exist, got", q)
 	}
-}
-
-// loadFixtures - loads fixtures
-func loadFixtures(path string, nodes *[]Node) error {
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	if err := json.NewDecoder(bufio.NewReader(file)).Decode(&nodes); err != nil {
-		return err
-	}
-
-	return nil
 }

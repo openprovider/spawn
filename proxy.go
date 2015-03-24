@@ -9,10 +9,10 @@ import (
 	"net/http"
 )
 
-// RequestHandler type is method which handle all requests
+// RequestHandler type is a callback function which handle all incoming requests and get responses
 type RequestHandler func(request *http.Request) *http.Response
 
-// proxy contains request handler method to manage http requests/responses
+// proxy contains request handler function which manage http requests/responses
 type proxy struct {
 	handler RequestHandler
 }
