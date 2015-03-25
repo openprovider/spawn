@@ -102,7 +102,9 @@ func (bundle *NodeBundle) GetAllByHost(host string) (nodes []Node, total int) {
 		}
 	}
 	total = len(nodes)
-	sort.Sort(byPriority(nodes))
+	if bundle.Server.byPriority {
+		sort.Sort(byPriority(nodes))
+	}
 
 	return
 }
@@ -119,7 +121,9 @@ func (bundle *NodeBundle) GetAll() (nodes []Node, total int) {
 		}
 	}
 	total = len(nodes)
-	sort.Sort(byPriority(nodes))
+	if bundle.Server.byPriority {
+		sort.Sort(byPriority(nodes))
+	}
 
 	return
 }
@@ -244,9 +248,6 @@ func (bundle *NodeBundle) DeleteAll() {
 // InitRing - init the nodes in the ring ('round-robin') and reset a pointer to the node
 func (bundle *NodeBundle) InitRing() {
 	nodes, total := bundle.GetAll()
-	if bundle.Server.byPriority {
-		sort.Sort(byPriority(nodes))
-	}
 	if bundle.Server.roundRobin && total > 1 {
 
 		// Lock the bundle for the transaction processing
