@@ -150,6 +150,18 @@ func (server *Server) Run(
 	check HealthCheck,
 ) (status string, err error) {
 
+	// if used round-robin mode
+	if roundRobin {
+		stdlog.Println(server.Name, "will used 'round-robin' mode")
+		server.roundRobin = roundRobin
+	}
+
+	// if used by-priority mode
+	if byPriority {
+		stdlog.Println("Nodes will queried according to priority")
+		server.byPriority = byPriority
+	}
+
 	// Init the Nodes update channel
 	server.Nodes.update = make(chan nodeJob, MaxJobs)
 
@@ -161,18 +173,6 @@ func (server *Server) Run(
 		status = server.Name + " is not loaded"
 		err = errors.New("The nodes settings in config have incorrect values")
 		return
-	}
-
-	// if used round-robin mode
-	if roundRobin {
-		stdlog.Println(server.Name, "will used 'round-robin' mode")
-		server.roundRobin = roundRobin
-	}
-
-	// if used by-priority mode
-	if byPriority {
-		stdlog.Println("Nodes will queried according to priority")
-		server.byPriority = byPriority
 	}
 
 	// Init a health check settings
