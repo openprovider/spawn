@@ -14,15 +14,23 @@ import (
 	"github.com/takama/router"
 )
 
-// Node contains the node parameters: - Host is the host name or IP,
-// - Port is the port number, - Priority define node, which will be queried
-// according to attribute of the priority.
-// Example of sorted priority values from highest to loewst (1,2,3,0,0,0,-1,-2,-3)
-// the priority 0 has neutral priority value between high and low,
-// - Active is the status of the node, if it set to false, the queue
-// corresponded with the node will be deleted and created if it set to true,
-// - Maintenance mode used to stop the worker and accumulate updates in the queue.
-// If maintenance mode set to false all updates will posted in the node
+/*
+Node contains the node parameters:
+
+- Host is the host name or IP,
+
+- Port is the port number,
+
+- Priority define node, which will be queried according to attribute of the priority.
+  Example of sorted priority values from highest to lowest (1,2,3,0,0,0,-1,-2,-3)
+  the priority '0' has neutral priority value between high and low,
+
+- Active is the status of the node, if it set to false, the queue
+  corresponded with the node will be deleted and created if it set to true,
+
+- Maintenance mode used to stop the worker and accumulate updates in the queue.
+  If maintenance mode set to false all updates will posted in the node.
+*/
 type Node struct {
 	Host        string `json:"host"`
 	Port        uint64 `json:"port"`
@@ -94,7 +102,9 @@ func (bundle *NodeBundle) GetAllByHost(host string) (nodes []Node, total int) {
 		}
 	}
 	total = len(nodes)
-	sort.Sort(byPriority(nodes))
+	if bundle.Server.byPriority {
+		sort.Sort(byPriority(nodes))
+	}
 
 	return
 }
@@ -111,7 +121,9 @@ func (bundle *NodeBundle) GetAll() (nodes []Node, total int) {
 		}
 	}
 	total = len(nodes)
-	sort.Sort(byPriority(nodes))
+	if bundle.Server.byPriority {
+		sort.Sort(byPriority(nodes))
+	}
 
 	return
 }
@@ -236,9 +248,6 @@ func (bundle *NodeBundle) DeleteAll() {
 // InitRing - init the nodes in the ring ('round-robin') and reset a pointer to the node
 func (bundle *NodeBundle) InitRing() {
 	nodes, total := bundle.GetAll()
-	if bundle.Server.byPriority {
-		sort.Sort(byPriority(nodes))
-	}
 	if bundle.Server.roundRobin && total > 1 {
 
 		// Lock the bundle for the transaction processing
@@ -281,48 +290,48 @@ func (bundle *NodeBundle) updateRecords() {
 	defer bundle.mutex.Unlock()
 
 	for {
-		data := <-bundle.update
+		update := <-bundle.update
 
 		// If the job done unlock the bundle
-		if data.done {
+		if update.done {
 			return
 		}
 
 		// Checks if empty significant values
-		if data.record.Host == "" || data.record.Port == 0 {
+		if update.record.Host == "" || update.record.Port == 0 {
 			continue
 		}
 
-		if data.isDelete {
-			queueID := fmt.Sprintf("%s:%d", data.record.Host, data.record.Port)
-			stdlog.Println("delete node", data.record.Host, data.record.Port)
-			delete(bundle.records[data.record.Host], data.record.Port)
-			if len(bundle.records[data.record.Host]) == 0 {
-				delete(bundle.records, data.record.Host)
+		if update.isDelete {
+			queueID := fmt.Sprintf("%s:%d", update.record.Host, update.record.Port)
+			stdlog.Println("delete node", update.record.Host, update.record.Port)
+			delete(bundle.records[update.record.Host], update.record.Port)
+			if len(bundle.records[update.record.Host]) == 0 {
+				delete(bundle.records, update.record.Host)
 			}
 			// remove update channel
 			bundle.queues.remove(queueID, bundle.Server.responseTimeout)
 		}
-		if data.isUpdate {
-			queueID := fmt.Sprintf("%s:%d", data.record.Host, data.record.Port)
-			stdlog.Println("update node", data.record.Host, data.record.Port)
+		if update.isUpdate {
+			queueID := fmt.Sprintf("%s:%d", update.record.Host, update.record.Port)
+			stdlog.Println("update node", update.record.Host, update.record.Port)
 			// Check if host does not exist
-			if _, ok := bundle.records[data.record.Host]; !ok {
-				bundle.records[data.record.Host] = make(map[uint64]Node)
+			if _, ok := bundle.records[update.record.Host]; !ok {
+				bundle.records[update.record.Host] = make(map[uint64]Node)
 			}
-			bundle.records[data.record.Host][data.record.Port] = data.record
+			bundle.records[update.record.Host][update.record.Port] = update.record
 
-			if data.record.Active {
+			if update.record.Active {
 				// Check the queue, if the queue does not exist,
 				// create a new one and assign the worker for it
 				queue, ok := bundle.queues.check(queueID)
 				if !ok {
-					if !data.record.Maintenance {
+					if !update.record.Maintenance {
 						// create the worker and assign it to queue
 						go bundle.Server.worker(queue)
 					}
 				} else {
-					if data.record.Maintenance {
+					if update.record.Maintenance {
 						// if the worker is alive
 						if getResponse(queue, bundle.Server.responseTimeout) {
 
@@ -375,7 +384,7 @@ func (bundle *NodeBundle) getRecord(c *router.Control) {
 		return
 	}
 
-	result := Data{
+	result := data{
 		"success": true,
 		"total":   1,
 		"results": []Node{record},
@@ -401,7 +410,7 @@ func (bundle *NodeBundle) getAllRecordsByHost(c *router.Control) {
 		return
 	}
 
-	result := Data{
+	result := data{
 		"success": true,
 		"total":   total,
 		"results": nodes,
@@ -422,7 +431,7 @@ func (bundle *NodeBundle) getAllRecords(c *router.Control) {
 		return
 	}
 
-	result := Data{
+	result := data{
 		"success": true,
 		"total":   total,
 		"results": nodes,
@@ -499,7 +508,7 @@ func (bundle *NodeBundle) putRecord(c *router.Control) {
 	bundle.update <- nodeJob{done: true}
 	bundle.job <- nodeJobSignal
 
-	result := Data{
+	result := data{
 		"success": true,
 		"total":   1,
 		"results": []Node{record},
@@ -561,7 +570,7 @@ func (bundle *NodeBundle) putAllRecords(c *router.Control) {
 	bundle.update <- nodeJob{done: true}
 	bundle.job <- nodeJobSignal
 
-	result := Data{
+	result := data{
 		"success": true,
 		"total":   len(results),
 		"results": results,
@@ -590,7 +599,7 @@ func (bundle *NodeBundle) deleteRecord(c *router.Control) {
 		return
 	}
 
-	c.Code(http.StatusOK).Body(Data{"success": true})
+	c.Code(http.StatusOK).Body(data{"success": true})
 }
 
 // deleteAllRecordsByHost delete all the nodes records wich contain only specified host
@@ -608,7 +617,7 @@ func (bundle *NodeBundle) deleteAllRecordsByHost(c *router.Control) {
 		return
 	}
 
-	c.Code(http.StatusOK).Body(Data{"success": true})
+	c.Code(http.StatusOK).Body(data{"success": true})
 }
 
 // deleteAllRecords delete all the nodes records
@@ -617,5 +626,5 @@ func (bundle *NodeBundle) deleteAllRecords(c *router.Control) {
 
 	bundle.DeleteAll()
 
-	c.Code(http.StatusOK).Body(Data{"success": true})
+	c.Code(http.StatusOK).Body(data{"success": true})
 }

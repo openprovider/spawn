@@ -25,10 +25,10 @@ import (
 const (
 
 	// VERSION - current version of the service
-	VERSION = "0.1.4"
+	VERSION = "0.1.5"
 
 	// DATE - revision date of the service
-	DATE = "2015-03-24T22:17:17Z"
+	DATE = "2015-03-28T20:39:17Z"
 
 	// MaxSignals - maximum count of update signals
 	MaxSignals = 1000
@@ -107,9 +107,6 @@ type HealthCheck struct {
 	Pattern string `json:"regexp"`
 }
 
-// Data is a shortcut
-type Data map[string]interface{}
-
 // NewServer creates a new server which contains the nodes/queues
 func NewServer(name string) (*Server, error) {
 
@@ -153,6 +150,18 @@ func (server *Server) Run(
 	check HealthCheck,
 ) (status string, err error) {
 
+	// if used round-robin mode
+	if roundRobin {
+		stdlog.Println(server.Name, "will used 'round-robin' mode")
+		server.roundRobin = roundRobin
+	}
+
+	// if used by-priority mode
+	if byPriority {
+		stdlog.Println("Nodes will queried according to priority")
+		server.byPriority = byPriority
+	}
+
 	// Init the Nodes update channel
 	server.Nodes.update = make(chan nodeJob, MaxJobs)
 
@@ -164,18 +173,6 @@ func (server *Server) Run(
 		status = server.Name + " is not loaded"
 		err = errors.New("The nodes settings in config have incorrect values")
 		return
-	}
-
-	// if used round-robin mode
-	if roundRobin {
-		stdlog.Println(server.Name, "will used 'round-robin' mode")
-		server.roundRobin = roundRobin
-	}
-
-	// if used by-priority mode
-	if byPriority {
-		stdlog.Println("Nodes will queried according to priority")
-		server.byPriority = byPriority
 	}
 
 	// Init a health check settings
@@ -435,46 +432,59 @@ func (server *Server) worker(q *queue) {
 		case task := <-q.task:
 			switch task {
 			case doJobTask:
-
-				// check the node
-				for {
-					if server.checkNode(q.id) {
-						break
-					}
-					stdlog.Println("Node", q.id, "does not ready for updates")
-					stdlog.Println("try again in", server.check.Seconds, "seconds")
-					timeout := time.NewTimer(time.Second * server.check.Seconds)
-					select {
-					//  Repeat by timeout
-					case <-timeout.C:
-						continue
-					case <-q.quit:
-						q.task <- doJobTask
-						return
-					case <-q.ask:
-						q.response <- struct{}{}
-					}
-				}
-				// if the node is alive, post data
-				job := <-q.jobs
-				data := <-job.query
-				if response, err := dispatchRequest(q.id, data); err != nil {
-
-					// Job does not done
-					errlog.Println(err)
-
-				} else {
-
-					// job done
-					job.answer <- response
-					job.done = true
-				}
+				server.doUpdate(q)
 			}
+			continue
+		default:
+		}
+		select {
+		case task := <-q.task:
+			switch task {
+			case doJobTask:
+				server.doUpdate(q)
+			}
+			continue
 		case <-q.quit:
 			return
 		case <-q.ask:
 			q.response <- struct{}{}
 		}
+	}
+}
+
+func (server *Server) doUpdate(q *queue) {
+	// check the node
+	for {
+		if server.checkNode(q.id) {
+			break
+		}
+		stdlog.Println("Node", q.id, "does not ready for updates")
+		stdlog.Println("try again in", server.check.Seconds, "seconds")
+		timeout := time.NewTimer(time.Second * server.check.Seconds)
+		select {
+		//  Repeat by timeout
+		case <-timeout.C:
+			continue
+		case <-q.quit:
+			q.task <- doJobTask
+			return
+		case <-q.ask:
+			q.response <- struct{}{}
+		}
+	}
+	// if the node is alive, post data
+	job := <-q.jobs
+	data := <-job.query
+	if response, err := dispatchRequest(q.id, data); err != nil {
+
+		// Job does not done
+		errlog.Println(err)
+
+	} else {
+
+		// job done
+		job.answer <- response
+		job.done = true
 	}
 }
 
