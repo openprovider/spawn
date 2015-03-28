@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	cmdQueueCapacity = 1
+	cmdQueueCapacity = 100
 
 	checkHealthTask = iota
 	doJobTask
@@ -57,7 +57,7 @@ func (bundle *queueBundle) check(id string) (*queue, bool) {
 			task:     make(chan int, MaxJobs),
 			ask:      make(chan struct{}, cmdQueueCapacity),
 			response: make(chan struct{}, cmdQueueCapacity),
-			quit:     make(chan struct{}, cmdQueueCapacity),
+			quit:     make(chan struct{}),
 		}
 		return bundle.records[id], false
 	}
@@ -93,12 +93,10 @@ func (bundle *queueBundle) remove(id string, timeout time.Duration) {
 func getResponse(q *queue, timeout time.Duration) bool {
 	ticker := time.NewTimer(time.Second * timeout)
 
-	// a unwanted ask/response sweeps if exist
+	// sweeps unwanted responses if exist
 	for {
 		select {
 		case <-q.response:
-			continue
-		case <-q.ask:
 			continue
 		default:
 		}
@@ -111,14 +109,10 @@ func getResponse(q *queue, timeout time.Duration) bool {
 	select {
 	// Exit by timeout if the response does not get (worker is not alive)
 	case <-ticker.C:
-		// all unwanted asks sweep if exist
-		for {
-			select {
-			case <-q.ask:
-				continue
-			default:
-			}
-			break
+		// sweeps ask which sent before if exist
+		select {
+		case <-q.ask:
+		default:
 		}
 		return false
 	// Exit after the response has been received
