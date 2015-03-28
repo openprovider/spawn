@@ -1,0 +1,46 @@
+{
+    "host": "localhost",
+    "port": 7117,
+    "api": {
+        "host": "localhost",
+        "port": 7118
+    },
+    "nodes": [
+        {
+            "host": "localhost",
+            "port": 7023,
+            "priority": 0,
+            "active": true,
+            "maintenance": false
+        },
+        {
+            "host": "localhost",
+            "port": 7025,
+            "priority": -2,
+            "active": true,
+            "maintenance": false
+        },
+        {
+            "host": "localhost",
+            "port": 7021,
+            "priority": 1,
+            "active": true,
+            "maintenance": false
+        },
+        {
+            "host": "localhost",
+            "port": 7022,
+            "priority": 2,
+            "active": true,
+            "maintenance": true
+        },
+        {
+            "host": "localhost",
+            "port": 7024,
+            "priority": -1,
+            "active": false,
+            "maintenance": true
+        }
+    ],
+    "failedNodeID": "localhost:7025"
+}
