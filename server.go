@@ -25,10 +25,10 @@ import (
 const (
 
 	// VERSION - current version of the service
-	VERSION = "0.1.6"
+	VERSION = "0.1.7"
 
 	// DATE - revision date of the service
-	DATE = "2015-03-28T20:49:17Z"
+	DATE = "2015-03-29T11:30:17Z"
 
 	// MaxSignals - maximum count of update signals
 	MaxSignals = 1000
@@ -183,7 +183,10 @@ func (server *Server) Run(
 
 	// Lists methods, which display how to use API
 	server.GET("/list", displayAllMethods)
-	server.GET("/list/nodes", displayNodeMethods)
+	server.GET("/list/nodes", displayAllNodeMethods)
+	server.GET("/list/nodes/get", displayGetNodeMethods)
+	server.GET("/list/nodes/set", displaySetNodeMethods)
+	server.GET("/list/nodes/delete", displayDeleteNodeMethods)
 
 	// Init API methods for the Nodes
 	server.GET("/nodes/:host/:port", server.Nodes.getRecord)
