@@ -183,7 +183,10 @@ func (server *Server) Run(
 
 	// Lists methods, which display how to use API
 	server.GET("/list", displayAllMethods)
-	server.GET("/list/nodes", displayNodeMethods)
+	server.GET("/list/nodes", displayAllNodeMethods)
+	server.GET("/list/nodes/get", displayGetNodeMethods)
+	server.GET("/list/nodes/set", displaySetNodeMethods)
+	server.GET("/list/nodes/delete", displayDeleteNodeMethods)
 
 	// Init API methods for the Nodes
 	server.GET("/nodes/:host/:port", server.Nodes.getRecord)

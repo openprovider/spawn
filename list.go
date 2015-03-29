@@ -13,61 +13,212 @@ import (
 func displayAllMethods(c *router.Control) {
 	methods := []string{
 		headerOfMethods,
-		listNodeMethods(),
+		listOfMethods,
 	}
 	desc := strings.Join(methods, "")
 	c.Body(desc)
 }
 
-func displayNodeMethods(c *router.Control) {
-	c.Body(headerOfMethods + listNodeMethods())
+func displayAllNodeMethods(c *router.Control) {
+	methods := []string{
+		headerOfMethods,
+		nodeGetMethods,
+		nodeSetMethods,
+		nodeDeleteMethods,
+	}
+	desc := strings.Join(methods, "")
+	c.Body(desc)
 }
 
-func listNodeMethods() string {
-	return nodeMethods
+func displayGetNodeMethods(c *router.Control) {
+	methods := []string{
+		headerOfMethods,
+		nodeGetMethods,
+	}
+	desc := strings.Join(methods, "")
+	c.Body(desc)
+}
+func displaySetNodeMethods(c *router.Control) {
+	methods := []string{
+		headerOfMethods,
+		nodeSetMethods,
+	}
+	desc := strings.Join(methods, "")
+	c.Body(desc)
+}
+func displayDeleteNodeMethods(c *router.Control) {
+	methods := []string{
+		headerOfMethods,
+		nodeDeleteMethods,
+	}
+	desc := strings.Join(methods, "")
+	c.Body(desc)
 }
 
 var headerOfMethods = `
 Spawn Sync Service
 
-The Spawn service used as a HTTP REST sync service, that makes clustering mode
-simpler and easier for most of applications.
+The Spawn service used as a HTTP REST sync service, that makes
+clustering mode simpler and easier for most of applications.
 `
-var nodeMethods = `
-Get node settings by host and port
+var listOfMethods = `
+Use helpers to see detailed information about specific methods.
 
-+-------------+-----------+----------------------+
-| Method      | Operation | URL                  |
-+-------------+-----------+----------------------+
-| Get Node    | GET       | /nodes/:host/:port   |
-+-------------+-----------+----------------------+
+To see all methods of the nodes settings, use:
+/list/nodes
 
-+-----------------+------------------+
-| Parameter       | Type             |
-+-----------------+------------------+
-| host            | string           |
-| port            | number           |
-| priority        | number           |
-| active          | boolean          |
-| maintenance     | boolean          |
-+-----------------+------------------+
+To see the methods that get the nodes settings, use:
+/list/nodes/get
 
+To see the methods that set the nodes settings, use:
+/list/nodes/set
 
-Set node settings by host and port
+To see the methods that delete the nodes settings, use:
+/list/nodes/delete
+`
+var nodeGetMethods = `
+Get node settings specified by host and port
+============================================
 
-+-------------+-----------+----------------------+
-| Method      | Operation | URL                  |
-+-------------+-----------+----------------------+
-| Set Node    | PUT       | /nodes/:host/:port   |
-+-------------+-----------+----------------------+
++----------------+------------------+-------------------------+
+| Method         | Operation        | URL                     |
++----------------+------------------+-------------------------+
+| Get Node       | GET              | /nodes/:host/:port      |
++----------------+------------------+-------------------------+
 
-+-----------------+------------------+----------+----------------+
-| Parameter       | Type             | Required | Default values |
-+-----------------+------------------+----------+----------------+
-| host            | string           | yes      |                |
-| port            | number           | yes      |                |
-| priority        | number           | no       | 0              |
-| active          | boolean          | no       | false          |
-| maintenance     | boolean          | no       | false          |
-+-----------------+------------------+----------+----------------+
++----------------+------------------+-------------------------+
+| Parameter      | Type             | Required                |
++----------------+------------------+-------------------------+
+| host           | string           | yes                     |
+| port           | number           | yes                     |
++----------------+------------------+-------------------------+
+
+Method returns node settings:
++----------------+------------------+-------------------------+
+| Data           | Type             | Description             |
++----------------+------------------+-------------------------+
+| host           | string           | Host name or IP address |
+| port           | number           | Port number             |
+| priority       | number           | Priority value          |
+| active         | boolean          | Node is active          |
+| maintenance    | boolean          | Node is in maintenance  |
++----------------+------------------+-------------------------+
+
+Get nodes settings specified by host
+====================================
+
++----------------+------------------+-------------------------+
+| Method         | Operation        | URL                     |
++----------------+------------------+-------------------------+
+| Get Nodes      | GET              | /nodes/:host            |
++----------------+------------------+-------------------------+
+
++----------------+------------------+-------------------------+
+| Parameter      | Type             | Required                |
++----------------+------------------+-------------------------+
+| host           | string           | yes                     |
++----------------+------------------+-------------------------+
+
+Method returns all nodes settings specified by host:
+See description - Get node settings specified by host and port
+
+Get all nodes settings
+======================
+
++----------------+------------------+-------------------------+
+| Method         | Operation        | URL                     |
++----------------+------------------+-------------------------+
+| Get Nodes      | GET              | /nodes                  |
++----------------+------------------+-------------------------+
+
+Method returns all nodes settings:
+See description - Get node settings specified by host and port
+`
+var nodeSetMethods = `
+Set node settings specified by host and port
+============================================
+
++----------------+------------------+-------------------------+
+| Method         | Operation        | URL                     |
++----------------+------------------+-------------------------+
+| Set Node       | PUT              | /nodes/:host/:port      |
++----------------+------------------+-------------------------+
+
++----------------+------------------+-------------------------+
+| Parameter      | Type             | Required                |
++----------------+------------------+-------------------------+
+| host           | string           | yes                     |
+| port           | number           | yes                     |
++----------------+------------------+-------------------------+
+
+Method accepts node settings:
++----------------+------------------+-------------------------+---------------+
+| Parameter      | Type             | Description             | Default value |
++----------------+------------------+-------------------------+---------------+
+| host           | string           | Host name or IP address |               |
+| port           | number           | Port number             |               |
+| priority       | number           | Priority value          | 0             |
+| active         | boolean          | Node is active          | false         |
+| maintenance    | boolean          | Node is in maintenance  | false         |
++----------------+------------------+-------------------------+---------------+
+
+Set all nodes settings
+======================
+
++----------------+------------------+-------------------------+
+| Method         | Operation        | URL                     |
++----------------+------------------+-------------------------+
+| Set Nodes      | PUT              | /nodes                  |
++----------------+------------------+-------------------------+
+
+Method accepts all nodes settings:
+See description - Set node settings specified by host and port
+`
+
+var nodeDeleteMethods = `
+Delete node settings specified by host and port
+===============================================
+
++----------------+------------------+-------------------------+
+| Method         | Operation        | URL                     |
++----------------+------------------+-------------------------+
+| Delete Node    | DELETE           | /nodes/:host/:port      |
++----------------+------------------+-------------------------+
+
++----------------+------------------+-------------------------+
+| Parameter      | Type             | Required                |
++----------------+------------------+-------------------------+
+| host           | string           | yes                     |
+| port           | number           | yes                     |
++----------------+------------------+-------------------------+
+
+Method delete node settings specified by host and port
+
+Delete nodes settings specified by host
+=======================================
+
++----------------+------------------+-------------------------+
+| Method         | Operation        | URL                     |
++----------------+------------------+-------------------------+
+| Delete Nodes   | DELETE           | /nodes/:host            |
++----------------+------------------+-------------------------+
+
++----------------+------------------+-------------------------+
+| Parameter      | Type             | Required                |
++----------------+------------------+-------------------------+
+| host           | string           | yes                     |
++----------------+------------------+-------------------------+
+
+Method delete all nodes settings specified by host
+
+Delete all nodes settings
+=========================
+
++----------------+------------------+-------------------------+
+| Method         | Operation        | URL                     |
++----------------+------------------+-------------------------+
+| Delete Nodes   | DELETE           | /nodes                  |
++----------------+------------------+-------------------------+
+
+Method delete all nodes settings
 `
