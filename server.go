@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -41,6 +40,7 @@ const (
 
 	// HTTP methods, which should be queued
 	protocolHTTP = "http"
+	methodGET    = "GET"
 	methodPOST   = "POST"
 	methodPUT    = "PUT"
 	methodDELETE = "DELETE"
@@ -92,6 +92,9 @@ type Server struct {
 
 	// Queue Bundle contains the queue records
 	queues *queueBundle
+
+	// Node connection transport
+	transport http.RoundTripper
 }
 
 // HealthCheck contains parameters which used for checking node
@@ -125,6 +128,7 @@ func NewServer(name string) (*Server, error) {
 		response:        make(chan struct{}),
 		job:             make(chan int, MaxSignals),
 		quit:            make(chan struct{}),
+		transport:       http.DefaultTransport,
 	}
 
 	// Create and init nodes bundle
@@ -297,9 +301,10 @@ func (server *Server) doJob(signal int) {
 func (server *Server) proxyHandler(request *http.Request) *http.Response {
 
 	// Add "X-Forwarded-For" to repost remote host IP
-	if remoteHost, _, err := net.SplitHostPort(request.RemoteAddr); err == nil {
-		request.Header.Add("X-Forwarded-For", remoteHost)
+	if request.Header.Get("X-Forwarded-For") == "" {
+		request.Header.Add("X-Forwarded-For", request.RemoteAddr)
 	}
+
 	// Use HTTP scheme
 	request.URL.Scheme = protocolHTTP
 
@@ -308,14 +313,14 @@ func (server *Server) proxyHandler(request *http.Request) *http.Response {
 		request.Method != methodPUT &&
 		request.Method != methodDELETE {
 
-		return server.processGET(request)
+		return server.processReceive(request)
 	}
 
 	return server.processUpdate(request)
 }
 
-// call 'GET' request to the node using defined mode
-func (server *Server) processGET(request *http.Request) *http.Response {
+// call 'GET' and others requests to the node using defined mode
+func (server *Server) processReceive(request *http.Request) *http.Response {
 	if server.roundRobin {
 
 		// Use round robin to get data from the host
@@ -330,7 +335,7 @@ func (server *Server) processGET(request *http.Request) *http.Response {
 				server.Nodes.TwistRing()
 
 				if server.checkNode(request.URL.Host) {
-					response, err := http.DefaultTransport.RoundTrip(request)
+					response, err := server.transport.RoundTrip(request)
 					if err == nil {
 						// If response is sucess, return
 						return response
@@ -387,6 +392,7 @@ func (server *Server) processUpdate(request *http.Request) *http.Response {
 	var response *http.Response
 	if nodes, total := server.Nodes.GetAll(); total > 0 {
 		answer := make(chan *http.Response, total)
+		done := make(chan struct{}, total)
 		for _, node := range nodes {
 			if node.Active {
 
@@ -394,6 +400,7 @@ func (server *Server) processUpdate(request *http.Request) *http.Response {
 
 				// create new queue job
 				job := &queueJob{
+					done:   done,
 					query:  make(chan []byte, 1),
 					answer: answer,
 				}
@@ -478,7 +485,7 @@ func (server *Server) doUpdate(q *queue) {
 	// if the node is alive, post data
 	job := <-q.jobs
 	data := <-job.query
-	if response, err := dispatchRequest(q.id, data); err != nil {
+	if response, err := server.dispatchRequest(q.id, data); err != nil {
 
 		// Job does not done
 		errlog.Println(err)
@@ -486,8 +493,14 @@ func (server *Server) doUpdate(q *queue) {
 	} else {
 
 		// job done
-		job.answer <- response
-		job.done = true
+		if len(job.done) == 0 {
+			// send first response and done signal
+			job.done <- struct{}{}
+			job.answer <- response
+		} else {
+			// just close connection
+			response.Body.Close()
+		}
 	}
 }
 
@@ -495,7 +508,6 @@ func (server *Server) doUpdate(q *queue) {
 func (server *Server) checkNode(host string) bool {
 	response, err := http.Get(protocolHTTP + "://" + host + server.check.URL)
 	if err != nil {
-		stdlog.Println(host, err)
 		return false
 	}
 
@@ -507,7 +519,6 @@ func (server *Server) checkNode(host string) bool {
 
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
-		stdlog.Println(host, err)
 		return false
 	}
 	// check of regexp pattern
@@ -516,20 +527,18 @@ func (server *Server) checkNode(host string) bool {
 }
 
 // Reproduce request to specified node and capture response
-func dispatchRequest(host string, data []byte) (*http.Response, error) {
+func (server *Server) dispatchRequest(host string, data []byte) (*http.Response, error) {
 	reader := bufio.NewReader(bytes.NewBuffer(data))
 	request, err := http.ReadRequest(reader)
 	if err != nil {
-		stdlog.Println(host, err)
 		return nil, err
 	}
 	request.Body = ioutil.NopCloser(reader)
 	request.URL.Scheme = protocolHTTP
 	request.URL.Host = host
 
-	response, err := http.DefaultTransport.RoundTrip(request)
+	response, err := server.transport.RoundTrip(request)
 	if err != nil {
-		stdlog.Println(host, err)
 		return nil, err
 	}
 	return response, nil
