@@ -24,10 +24,10 @@ import (
 const (
 
 	// VERSION - current version of the service
-	VERSION = "0.1.8"
+	VERSION = "0.1.9"
 
 	// DATE - revision date of the service
-	DATE = "2015-04-02T11:52:17Z"
+	DATE = "2015-04-03T01:46:17Z"
 
 	// MaxSignals - maximum count of update signals
 	MaxSignals = 1000
