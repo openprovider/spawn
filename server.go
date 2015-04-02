@@ -495,6 +495,7 @@ func (server *Server) doUpdate(q *queue) {
 func (server *Server) checkNode(host string) bool {
 	response, err := http.Get(protocolHTTP + "://" + host + server.check.URL)
 	if err != nil {
+		stdlog.Println(host, err)
 		return false
 	}
 
@@ -506,6 +507,7 @@ func (server *Server) checkNode(host string) bool {
 
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
+		stdlog.Println(host, err)
 		return false
 	}
 	// check of regexp pattern
@@ -518,6 +520,7 @@ func dispatchRequest(host string, data []byte) (*http.Response, error) {
 	reader := bufio.NewReader(bytes.NewBuffer(data))
 	request, err := http.ReadRequest(reader)
 	if err != nil {
+		stdlog.Println(host, err)
 		return nil, err
 	}
 	request.Body = ioutil.NopCloser(reader)
@@ -526,6 +529,7 @@ func dispatchRequest(host string, data []byte) (*http.Response, error) {
 
 	response, err := http.DefaultTransport.RoundTrip(request)
 	if err != nil {
+		stdlog.Println(host, err)
 		return nil, err
 	}
 	return response, nil
