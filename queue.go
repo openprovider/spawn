@@ -30,7 +30,7 @@ type queue struct {
 
 // queueJob produce a task which contains query/response and status (done)
 type queueJob struct {
-	done   bool
+	done   chan struct{}
 	query  chan []byte
 	answer chan *http.Response
 }

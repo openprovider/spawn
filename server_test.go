@@ -64,12 +64,9 @@ func (config *testConfig) loadTestConfig(path string) error {
 	return nil
 }
 
-func TestMain(m *testing.M) {
-	stats.received = make(map[string]int)
-	os.Exit(m.Run())
-}
-
 func TestServer(t *testing.T) {
+
+	stats.received = make(map[string]int)
 
 	// create new server
 	server, err := NewServer("Test-server")
@@ -131,8 +128,8 @@ func TestServer(t *testing.T) {
 	client := http.DefaultClient
 	content := new(testContent)
 
-	// do 10 times of GET request to different host (in order according to priority)
-	for i := 1; i <= 10; i++ {
+	// do 100 times of GET request to different host (in order according to priority)
+	for i := 1; i <= 100; i++ {
 		// for every node
 		for _, node := range config.Nodes {
 			id := fmt.Sprintf("%s:%d", node.Host, node.Port)
@@ -182,8 +179,8 @@ func TestServer(t *testing.T) {
 		}
 	}
 
-	// do 10 times of update request to different host (in order according to priority)
-	for i := 1; i <= 10; i++ {
+	// do 100 times of update request to different host (in order according to priority)
+	for i := 1; i <= 100; i++ {
 		// for every node
 		for _, operation := range []string{"POST", "PUT", "DELETE"} {
 
@@ -234,8 +231,8 @@ func TestServer(t *testing.T) {
 			q, ok := server.queues.check(id)
 			test(t, ok, "Expected queue should be exist, got it does not exist")
 			getResponse(q, 1)
-			test(t, stats.received[id] == 30,
-				"Expected count of updates for", id, "- 30, got", stats.received[id])
+			test(t, stats.received[id] == 300,
+				"Expected count of updates for", id, "- 300, got", stats.received[id])
 		}
 	}
 	// waiting for all updates were sent to nodes which are active
@@ -251,8 +248,8 @@ func TestServer(t *testing.T) {
 			test(t, server.Nodes.Set(&node),
 				"Expected change maintenance mode for", id, ", got error")
 			getResponse(q, 3)
-			test(t, stats.received[id] == 30,
-				"Expected count of updates for", id, "- 30, got", stats.received[id])
+			test(t, stats.received[id] == 300,
+				"Expected count of updates for", id, "- 300, got", stats.received[id])
 		}
 	}
 
@@ -273,8 +270,8 @@ func TestServer(t *testing.T) {
 
 			// waiting for all updates came
 			getResponse(q, 3)
-			test(t, stats.received[id] == 30,
-				"Expected count of updates for", id, "- 30, got", stats.received[id])
+			test(t, stats.received[id] == 300,
+				"Expected count of updates for", id, "- 300, got", stats.received[id])
 		}
 	}
 
