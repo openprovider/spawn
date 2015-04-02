@@ -25,10 +25,10 @@ import (
 const (
 
 	// VERSION - current version of the service
-	VERSION = "0.1.7"
+	VERSION = "0.1.8"
 
 	// DATE - revision date of the service
-	DATE = "2015-03-29T11:30:17Z"
+	DATE = "2015-04-02T11:52:17Z"
 
 	// MaxSignals - maximum count of update signals
 	MaxSignals = 1000
@@ -495,6 +495,7 @@ func (server *Server) doUpdate(q *queue) {
 func (server *Server) checkNode(host string) bool {
 	response, err := http.Get(protocolHTTP + "://" + host + server.check.URL)
 	if err != nil {
+		stdlog.Println(host, err)
 		return false
 	}
 
@@ -506,6 +507,7 @@ func (server *Server) checkNode(host string) bool {
 
 	data, err := ioutil.ReadAll(response.Body)
 	if err != nil {
+		stdlog.Println(host, err)
 		return false
 	}
 	// check of regexp pattern
@@ -518,6 +520,7 @@ func dispatchRequest(host string, data []byte) (*http.Response, error) {
 	reader := bufio.NewReader(bytes.NewBuffer(data))
 	request, err := http.ReadRequest(reader)
 	if err != nil {
+		stdlog.Println(host, err)
 		return nil, err
 	}
 	request.Body = ioutil.NopCloser(reader)
@@ -526,6 +529,7 @@ func dispatchRequest(host string, data []byte) (*http.Response, error) {
 
 	response, err := http.DefaultTransport.RoundTrip(request)
 	if err != nil {
+		stdlog.Println(host, err)
 		return nil, err
 	}
 	return response, nil
