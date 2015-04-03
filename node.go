@@ -25,8 +25,9 @@ Node contains the node parameters:
   Example of sorted priority values from highest to lowest (1,2,3,0,0,0,-1,-2,-3)
   the priority '0' has neutral priority value between high and low,
 
-- Active is the status of the node, if it set to false, the queue
-  corresponded with the node will be deleted and created if it set to true,
+- Active is the status of the node.
+  If it set to false, the queue corresponded with the node will be deleted
+  and created if it set to true,
 
 - Maintenance mode used to stop the worker and accumulate updates in the queue.
   If maintenance mode set to false all updates will posted in the node.
