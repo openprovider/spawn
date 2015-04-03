@@ -13,9 +13,7 @@ import (
 const (
 	cmdQueueCapacity = 100
 
-	checkHealthTask = iota
-	doJobTask
-	repeatJobTask
+	doJobTask = iota
 )
 
 // Queue data (queries, responses, etc)
