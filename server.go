@@ -24,10 +24,10 @@ import (
 const (
 
 	// VERSION - current version of the service
-	VERSION = "0.1.10"
+	VERSION = "0.1.11"
 
 	// DATE - revision date of the service
-	DATE = "2015-04-03T17:40:17Z"
+	DATE = "2015-04-06T00:40:17Z"
 
 	// MaxSignals - maximum count of update signals
 	MaxSignals = 1000
@@ -143,12 +143,13 @@ func NewServer(name string) (*Server, error) {
 	return server, nil
 }
 
-// Run the server, init the handlers, init the specified modes
-// If handler RequestHandler is not defined used default handler
-// with standard handling of the requests/responses
+// Run the server, init the handlers, init the specified modes.
+// If transport http.RoundTripper is not defined used default transport.
+// http.RoundTripper contains callback function which handle
+// all incoming requests and get responses/errors
 func (server *Server) Run(
 	hostPort, apiHostPort string,
-	handler RequestHandler,
+	transport http.RoundTripper,
 	nodes []Node,
 	roundRobin, byPriority bool,
 	check HealthCheck,
@@ -204,11 +205,9 @@ func (server *Server) Run(
 
 	go server.Listen(apiHostPort)
 	go func() {
-		p := new(proxy)
-		if handler != nil {
-			p.handler = handler
-		} else {
-			p.handler = server.proxyHandler
+		p := &proxy{transport: server}
+		if transport != nil {
+			p.transport = transport
 		}
 		if err := http.ListenAndServe(hostPort, p); err != nil {
 			errlog.Fatal(err)
@@ -297,8 +296,8 @@ func (server *Server) doJob(signal int) {
 	}
 }
 
-// proxyHandler manages all requests/responses
-func (server *Server) proxyHandler(request *http.Request) *http.Response {
+// RoundTrip manages all requests/responses
+func (server *Server) RoundTrip(request *http.Request) (*http.Response, error) {
 
 	// Add "X-Forwarded-For" to repost remote host IP
 	if request.Header.Get("X-Forwarded-For") == "" {
@@ -320,7 +319,7 @@ func (server *Server) proxyHandler(request *http.Request) *http.Response {
 }
 
 // call 'GET' and others requests to the node using defined mode
-func (server *Server) processReceive(request *http.Request) *http.Response {
+func (server *Server) processReceive(request *http.Request) (*http.Response, error) {
 	if server.roundRobin {
 
 		// Use round robin to get data from the host
@@ -338,7 +337,7 @@ func (server *Server) processReceive(request *http.Request) *http.Response {
 					response, err := server.transport.RoundTrip(request)
 					if err == nil {
 						// If response is sucess, return
-						return response
+						return response, nil
 					}
 					errlog.Println(err)
 				}
@@ -364,7 +363,7 @@ func (server *Server) processReceive(request *http.Request) *http.Response {
 						response, err := http.DefaultTransport.RoundTrip(request)
 						if err == nil {
 							// If response is sucess, return
-							return response
+							return response, nil
 						}
 						errlog.Println(err)
 					}
@@ -373,20 +372,17 @@ func (server *Server) processReceive(request *http.Request) *http.Response {
 		}
 	}
 
-	stdlog.Println("Warning: no one of the nodes is active")
-
-	return nil
+	return nil, errors.New("Warning: no one of the nodes is active")
 }
 
 // call 'PUT', 'POST', 'DELETE' request to the node
-func (server *Server) processUpdate(request *http.Request) *http.Response {
+func (server *Server) processUpdate(request *http.Request) (*http.Response, error) {
 	// grab update request
 	proxyRequestData, err := httputil.DumpRequest(request, true)
 	if err != nil {
 
-		// if unsuccessful, return nil response
-		errlog.Println(err)
-		return nil
+		// if unsuccessful, return error
+		return nil, err
 	}
 	var host string
 	var response *http.Response
@@ -415,13 +411,13 @@ func (server *Server) processUpdate(request *http.Request) *http.Response {
 		for {
 			select {
 			case response = <-answer:
-				return response
+				return response, nil
 			case <-timeout.C:
-				return response
+				return response, errors.New("timeout")
 			}
 		}
 	}
-	return response
+	return response, errors.New("The nodes are not defined")
 }
 
 // worker receive a data from the queue and send it to the node

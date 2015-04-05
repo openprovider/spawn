@@ -184,7 +184,11 @@ func infoHandler(c *router.Control) {
 }
 
 func logger(c *router.Control) {
-	stdlog.Println(c.Request.RemoteAddr, c.Request.Method, c.Request.URL.Path)
+	remoteAddr := c.Request.Header.Get("X-Forwarded-For")
+	if remoteAddr == "" {
+		remoteAddr = c.Request.RemoteAddr
+	}
+	stdlog.Println(remoteAddr, c.Request.Method, c.Request.URL.Path)
 }
 
 func baseHandler(handle router.Handle) router.Handle {
