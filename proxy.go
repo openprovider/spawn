@@ -9,18 +9,16 @@ import (
 	"net/http"
 )
 
-// RequestHandler type is a callback function which handle all incoming requests and get responses
-type RequestHandler func(request *http.Request) *http.Response
-
 // proxy contains request handler function which manage http requests/responses
 type proxy struct {
-	handler RequestHandler
+	transport http.RoundTripper
 }
 
 // ServeHTTP implements http.Handler interface.
 func (p *proxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	response := p.handler(req)
-	if response == nil {
+	response, err := p.transport.RoundTrip(req)
+	if err != nil {
+		errlog.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
