@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="UTF-8">
+    <title>Spawn by takama</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" type="text/css" href="stylesheets/normalize.css" media="screen">
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,700' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen">
+    <link rel="stylesheet" type="text/css" href="stylesheets/github-light.css" media="screen">
+  </head>
+  <body>
+    <section class="page-header">
+      <h1 class="project-name">Spawn</h1>
+      <h2 class="project-tagline">The Spawn service used as a HTTP REST sync service, that makes clustering mode simpler and easier for most of applications.</h2>
+      <a href="https://github.com/takama/spawn" class="btn">View on GitHub</a>
+      <a href="https://github.com/takama/spawn/zipball/master" class="btn">Download .zip</a>
+      <a href="https://github.com/takama/spawn/tarball/master" class="btn">Download .tar.gz</a>
+    </section>
+
+    <section class="main-content">
+      <h1>
+<a id="spawn-sync-service" class="anchor" href="#spawn-sync-service" aria-hidden="true"><span class="octicon octicon-link"></span></a>Spawn Sync service</h1>
+
+<p>The Spawn service used as a HTTP REST sync service, that makes clustering mode simpler and easier for most
+of applications. What's the idea? There are several applications, which are developed to provide their service
+through HTTP Rest API. But you have no idea how to provide failover processing and clustering mode for these 
+applications, because they are not compatible with, etc. And here we go. The Spawn service will make this
+job instead of the whole bunch of services that must be configured and communicating with each other.
+How it works? Let's see the scheme:</p>
+
+<p><img src="https://github.com/takama/spawn/blob/master/scheme/scheme.png" alt="Scheme"></p>
+
+<p>All GET requests from the Client will reproduce with a selected node. A node for GET requests will be selected
+by specified 'round-robin' and 'by priority' mode if they are active. All updates requests (PUT, POST, DELETE)
+will be repeated to every node or will be accumulated in the corresponded queue if the node is unreachable.</p>
+
+<p>If temporarily switch off the node 3 from the process, due to maintenance or network loss, the updates worker
+of the node 3 will be stopped automatically and all updates of the node 3 would begin to accumulate in the queue.
+After the end of maintenance work all accumulated updates will posted in the node 3. </p>
+
+<p>Embedded health checker makes possible to recover processing automatically. </p>
+
+<p>The service has API to control of the nodes. So, if you setup the Spawn API on localhost:7118, you can use query
+below to show what nodes are configured:</p>
+
+<div class="highlight highlight-sh"><pre>curl -XGET http://localhost:7118/nodes<span class="pl-k">?</span>pretty=<span class="pl-c1">true</span>
+
+{
+  <span class="pl-s"><span class="pl-pds">"</span>duration<span class="pl-pds">"</span></span>: 25982,
+  <span class="pl-s"><span class="pl-pds">"</span>took<span class="pl-pds">"</span></span>: <span class="pl-s"><span class="pl-pds">"</span>25.982µs<span class="pl-pds">"</span></span>,
+  <span class="pl-s"><span class="pl-pds">"</span>data<span class="pl-pds">"</span></span>: {
+    <span class="pl-s"><span class="pl-pds">"</span>results<span class="pl-pds">"</span></span>: [
+      {
+        <span class="pl-s"><span class="pl-pds">"</span>host<span class="pl-pds">"</span></span>: <span class="pl-s"><span class="pl-pds">"</span>node1.myapp.com<span class="pl-pds">"</span></span>,
+        <span class="pl-s"><span class="pl-pds">"</span>port<span class="pl-pds">"</span></span>: 7017,
+        <span class="pl-s"><span class="pl-pds">"</span>priority<span class="pl-pds">"</span></span>: 1,
+        <span class="pl-s"><span class="pl-pds">"</span>active<span class="pl-pds">"</span></span>: <span class="pl-c1">true</span>,
+        <span class="pl-s"><span class="pl-pds">"</span>maintenance<span class="pl-pds">"</span></span>: <span class="pl-c1">false</span>
+      },
+      {
+        <span class="pl-s"><span class="pl-pds">"</span>host<span class="pl-pds">"</span></span>: <span class="pl-s"><span class="pl-pds">"</span>node2.myapp.com<span class="pl-pds">"</span></span>,
+        <span class="pl-s"><span class="pl-pds">"</span>port<span class="pl-pds">"</span></span>: 7017,
+        <span class="pl-s"><span class="pl-pds">"</span>priority<span class="pl-pds">"</span></span>: 2,
+        <span class="pl-s"><span class="pl-pds">"</span>active<span class="pl-pds">"</span></span>: <span class="pl-c1">true</span>,
+        <span class="pl-s"><span class="pl-pds">"</span>maintenance<span class="pl-pds">"</span></span>: <span class="pl-c1">false</span>
+      }
+    ],
+    <span class="pl-s"><span class="pl-pds">"</span>success<span class="pl-pds">"</span></span>: <span class="pl-c1">true</span>,
+    <span class="pl-s"><span class="pl-pds">"</span>total<span class="pl-pds">"</span></span>: 2
+  }
+}
+</pre></div>
+
+<p>Of course you could modify/delete these setting with PUT/DELETE request. Use API helper '/list' to see all supported methods.</p>
+
+<p>Currently this is not production version, follow the updates.</p>
+
+<h3>
+<a id="restrictions" class="anchor" href="#restrictions" aria-hidden="true"><span class="octicon octicon-link"></span></a>Restrictions</h3>
+
+<ul>
+<li>HTTPS is not supported currently</li>
+</ul>
+
+<h3>
+<a id="config" class="anchor" href="#config" aria-hidden="true"><span class="octicon octicon-link"></span></a>Config</h3>
+
+<p>Example of a config file</p>
+
+<div class="highlight highlight-json"><pre>{
+  <span class="pl-s"><span class="pl-pds">"</span>host<span class="pl-pds">"</span></span>: <span class="pl-s"><span class="pl-pds">"</span>spawn.myapp.com<span class="pl-pds">"</span></span>,
+  <span class="pl-s"><span class="pl-pds">"</span>port<span class="pl-pds">"</span></span>: <span class="pl-c1">7117</span>,
+  <span class="pl-s"><span class="pl-pds">"</span>api<span class="pl-pds">"</span></span>: {
+    <span class="pl-s"><span class="pl-pds">"</span>host<span class="pl-pds">"</span></span>: <span class="pl-s"><span class="pl-pds">"</span>spawn.myapp.com<span class="pl-pds">"</span></span>,
+    <span class="pl-s"><span class="pl-pds">"</span>port<span class="pl-pds">"</span></span>: <span class="pl-c1">7118</span>
+  },
+  <span class="pl-s"><span class="pl-pds">"</span>query-mode<span class="pl-pds">"</span></span>: {
+    <span class="pl-s"><span class="pl-pds">"</span>round-robin<span class="pl-pds">"</span></span>: <span class="pl-c1">true</span>,
+    <span class="pl-s"><span class="pl-pds">"</span>by-priority<span class="pl-pds">"</span></span>: <span class="pl-c1">true</span>
+  },
+  <span class="pl-s"><span class="pl-pds">"</span>health-check<span class="pl-pds">"</span></span>: {
+    <span class="pl-s"><span class="pl-pds">"</span>seconds<span class="pl-pds">"</span></span>: <span class="pl-c1">10</span>,
+    <span class="pl-s"><span class="pl-pds">"</span>url<span class="pl-pds">"</span></span>: <span class="pl-s"><span class="pl-pds">"</span>/info<span class="pl-pds">"</span></span>,
+    <span class="pl-s"><span class="pl-pds">"</span>regexp<span class="pl-pds">"</span></span>: <span class="pl-s"><span class="pl-pds">"</span>^version:[0-9]+$<span class="pl-pds">"</span></span>
+  },
+  <span class="pl-s"><span class="pl-pds">"</span>nodes<span class="pl-pds">"</span></span>: [
+    {
+      <span class="pl-s"><span class="pl-pds">"</span>host<span class="pl-pds">"</span></span>: <span class="pl-s"><span class="pl-pds">"</span>node1.myapp.com<span class="pl-pds">"</span></span>,
+      <span class="pl-s"><span class="pl-pds">"</span>port<span class="pl-pds">"</span></span>: <span class="pl-c1">7017</span>,
+      <span class="pl-s"><span class="pl-pds">"</span>priority<span class="pl-pds">"</span></span>: <span class="pl-c1">1</span>,
+      <span class="pl-s"><span class="pl-pds">"</span>active<span class="pl-pds">"</span></span>: <span class="pl-c1">true</span>,
+      <span class="pl-s"><span class="pl-pds">"</span>maintenance<span class="pl-pds">"</span></span>: <span class="pl-c1">false</span>
+    },
+    {
+      <span class="pl-s"><span class="pl-pds">"</span>host<span class="pl-pds">"</span></span>: <span class="pl-s"><span class="pl-pds">"</span>node2.myapp.com<span class="pl-pds">"</span></span>,
+      <span class="pl-s"><span class="pl-pds">"</span>port<span class="pl-pds">"</span></span>: <span class="pl-c1">7017</span>,
+      <span class="pl-s"><span class="pl-pds">"</span>priority<span class="pl-pds">"</span></span>: <span class="pl-c1">2</span>,
+      <span class="pl-s"><span class="pl-pds">"</span>active<span class="pl-pds">"</span></span>: <span class="pl-c1">true</span>,
+      <span class="pl-s"><span class="pl-pds">"</span>maintenance<span class="pl-pds">"</span></span>: <span class="pl-c1">false</span>
+    },
+    {
+      <span class="pl-s"><span class="pl-pds">"</span>host<span class="pl-pds">"</span></span>: <span class="pl-s"><span class="pl-pds">"</span>node3.myapp.com<span class="pl-pds">"</span></span>,
+      <span class="pl-s"><span class="pl-pds">"</span>port<span class="pl-pds">"</span></span>: <span class="pl-c1">7017</span>,
+      <span class="pl-s"><span class="pl-pds">"</span>priority<span class="pl-pds">"</span></span>: <span class="pl-c1">3</span>,
+      <span class="pl-s"><span class="pl-pds">"</span>active<span class="pl-pds">"</span></span>: <span class="pl-c1">false</span>,
+      <span class="pl-s"><span class="pl-pds">"</span>maintenance<span class="pl-pds">"</span></span>: <span class="pl-c1">false</span>
+    }
+  ]
+}</pre></div>
+
+<h3>
+<a id="install-from-source" class="anchor" href="#install-from-source" aria-hidden="true"><span class="octicon octicon-link"></span></a>Install from source</h3>
+
+<p>You need have installed golang 1.4.2+</p>
+
+<p>This service is "go-gettable", just do:</p>
+
+<div class="highlight highlight-sh"><pre>go get github.com/takama/spawn/spawnctl</pre></div>
+
+<h3>
+<a id="usage" class="anchor" href="#usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Usage</h3>
+
+<div class="highlight highlight-sh"><pre>spawnctl - Spawn Sync Service Control
+
+Usage:
+  spawnctl install <span class="pl-k">|</span> remove <span class="pl-k">|</span> start <span class="pl-k">|</span> stop <span class="pl-k">|</span> status
+  spawnctl [ -t <span class="pl-k">|</span> --test ] [ --option <span class="pl-k">|</span> --option ... ]
+  spawnctl -h <span class="pl-k">|</span> --help
+  spawnctl -v <span class="pl-k">|</span> --version
+
+Commands:
+  install           Install as service
+  remove            Remove service
+  start             Start service
+  stop              Stop service
+  status            Check service status
+
+  -h --help         Show this screen
+  -v --version      Show version
+  -t --test         Test mode
+
+Options:
+  --config=PATH          Path to the config file
+  --host=HOST            Host name or IP address
+  --port=PORT            Port number
+  --api-host=HOST        API host name or IP address
+  --api-port=PORT        API port number
+  --round-robin          Use round-robin mode <span class="pl-k">for</span> <span class="pl-smi">querying</span> of nodes
+  --by-priority          Nodes will queried according to priority
+  --check-sec=SECONDS    Check nodes every number of seconds
+  --check-url=URL        URL to check nodes (/info, etc)
+  --check-regexp=REGEXP  Regexp pattern to check nodes</pre></div>
+
+<h2>
+<a id="todo" class="anchor" href="#todo" aria-hidden="true"><span class="octicon octicon-link"></span></a>Todo</h2>
+
+<ul>
+<li>More of Tests coverage and benchmarks</li>
+<li>Synchronization between the nodes</li>
+<li>Exponential Back-off</li>
+<li>support of HTTPS</li>
+<li>Monitoring system inside</li>
+<li>Admin panel for monitoring and configuration of the nodes</li>
+<li>Extended logging system</li>
+</ul>
+
+<h2>
+<a id="author" class="anchor" href="#author" aria-hidden="true"><span class="octicon octicon-link"></span></a>Author</h2>
+
+<p><a href="https://github.com/takama">Igor Dolzhikov</a></p>
+
+<h2>
+<a id="contributors" class="anchor" href="#contributors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Contributors</h2>
+
+<p>All the contributors are welcome. If you would like to be the contributor please accept some rules.</p>
+
+<ul>
+<li>The pull requests will be accepted only in "develop" branch</li>
+<li>All modifications or additions should be tested</li>
+<li>Sorry, I'll not accept code with any dependency, only standard library</li>
+</ul>
+
+<p>Thank you for your understanding!</p>
+
+<h2>
+<a id="license" class="anchor" href="#license" aria-hidden="true"><span class="octicon octicon-link"></span></a>License</h2>
+
+<p><a href="https://github.com/takama/spawn/blob/master/LICENSE">MIT License</a></p>
+
+      <footer class="site-footer">
+        <span class="site-footer-owner"><a href="https://github.com/takama/spawn">Spawn</a> is maintained by <a href="https://github.com/takama">takama</a>.</span>
+
+        <span class="site-footer-credits">This page was generated by <a href="https://pages.github.com">GitHub Pages</a> using the <a href="https://github.com/jasonlong/cayman-theme">Cayman theme</a> by <a href="https://twitter.com/jasonlong">Jason Long</a>.</span>
+      </footer>
+
+    </section>
+
+  
+  </body>
+</html>
+
