@@ -112,7 +112,7 @@ Example of a config file
 ```
 ### Install from source
 
-You need have installed golang 1.4.2+
+You need have installed golang 1.4.2 (not 1.4.2+)
 
 This service is "go-gettable", just do:
 
