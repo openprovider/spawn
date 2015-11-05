@@ -1,8 +1,8 @@
 Spawn Sync service
 ==================
 
-[![Build Status](https://travis-ci.org/takama/spawn.png?branch=master)](https://travis-ci.org/takama/spawn)
-[![GoDoc](https://godoc.org/github.com/takama/spawn?status.svg)](https://godoc.org/github.com/takama/spawn)
+[![Build Status](https://travis-ci.org/openprovider/spawn.png?branch=master)](https://travis-ci.org/openprovider/spawn)
+[![GoDoc](https://godoc.org/github.com/openprovider/spawn?status.svg)](https://godoc.org/github.com/openprovider/spawn)
 
 The Spawn service used as a HTTP REST sync service, that makes clustering mode simpler and easier for most
 of applications. What's the idea? There are several applications, which are developed to provide their service
@@ -11,7 +11,7 @@ applications, because they are not compatible with, etc. And here we go. The Spa
 job instead of the whole bunch of services that must be configured and communicating with each other.
 How it works? Let's see the scheme:
 
-![Scheme](https://github.com/takama/spawn/blob/master/scheme/scheme.png)
+![Scheme](https://github.com/openprovider/spawn/blob/master/scheme/scheme.png)
 
 All GET requests from the Client will reproduce with a selected node. A node for GET requests will be selected
 by specified 'round-robin' and 'by priority' mode if they are active. All updates requests (PUT, POST, DELETE)
@@ -165,7 +165,7 @@ Options:
 - Admin panel for monitoring and configuration of the nodes
 - Extended logging system
 
-## Author
+## Authors
 
 [Igor Dolzhikov](https://github.com/takama)
 
@@ -180,4 +180,4 @@ Thank you for your understanding!
 
 ## License
 
-[MIT License](https://github.com/takama/spawn/blob/master/LICENSE)
+[MIT License](https://github.com/openprovider/spawn/blob/master/LICENSE)
