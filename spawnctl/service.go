@@ -10,8 +10,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/openprovider/spawn"
 	"github.com/takama/daemon"
-	"github.com/takama/spawn"
 )
 
 const (

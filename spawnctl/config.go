@@ -10,7 +10,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/takama/spawn"
+	"github.com/openprovider/spawn"
 )
 
 // Default values: path to config file, host, port, etc
