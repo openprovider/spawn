@@ -1,7 +1,7 @@
 Spawn Sync service
 ==================
 
-[![Build Status](https://travis-ci.org/openprovider/spawn.png?branch=master)](https://travis-ci.org/openprovider/spawn)
+[![Build Status](https://travis-ci.org/openprovider/spawn.svg?branch=master)](https://travis-ci.org/openprovider/spawn)
 [![GoDoc](https://godoc.org/github.com/openprovider/spawn?status.svg)](https://godoc.org/github.com/openprovider/spawn)
 
 The Spawn service used as a HTTP REST sync service, that makes clustering mode simpler and easier for most
