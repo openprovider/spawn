@@ -1,4 +1,4 @@
-// Copyright 2015 Igor Dolzhikov. All rights reserved.
+// Copyright 2015 Openprovider Authors. All rights reserved.
 // Use of this source code is governed by a license
 // that can be found in the LICENSE file.
 
@@ -10,7 +10,7 @@ import (
 	"flag"
 	"os"
 
-	"github.com/takama/spawn"
+	"github.com/openprovider/spawn"
 )
 
 // Default values: path to config file, host, port, etc
