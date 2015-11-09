@@ -1,5 +1,5 @@
-Spawn Sync service
-==================
+Openprovider Spawn Sync service
+===============================
 
 [![Build Status](https://travis-ci.org/openprovider/spawn.svg?branch=master)](https://travis-ci.org/openprovider/spawn)
 [![GoDoc](https://godoc.org/github.com/openprovider/spawn?status.svg)](https://godoc.org/github.com/openprovider/spawn)
