@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"sync"
 	"testing"
 	"time"
 )
@@ -26,6 +27,7 @@ type testContent struct {
 }
 
 type testUpdatesStats struct {
+	mutex    sync.RWMutex
 	sent     int
 	received map[string]int
 }
@@ -197,7 +199,9 @@ func TestServer(t *testing.T) {
 			test(t, err == nil, "Expected update data to app host, got", err)
 			test(t, response.StatusCode == http.StatusOK,
 				"Expected status ok for update data to app host, got", response.StatusCode)
+			stats.mutex.Lock()
 			stats.sent++
+			stats.mutex.Unlock()
 			body, err := ioutil.ReadAll(response.Body)
 			response.Body.Close()
 			test(t, err == nil, "Expected read body response, got", err)
@@ -231,8 +235,10 @@ func TestServer(t *testing.T) {
 			q, ok := server.queues.check(id)
 			test(t, ok, "Expected queue should be exist, got it does not exist")
 			getResponse(q, 1)
+			stats.mutex.RLock()
 			test(t, stats.received[id] == 300,
 				"Expected count of updates for", id, "- 300, got", stats.received[id])
+			stats.mutex.RUnlock()
 		}
 	}
 	// waiting for all updates were sent to nodes which are active
@@ -270,8 +276,10 @@ func TestServer(t *testing.T) {
 
 			// waiting for all updates came
 			getResponse(q, 3)
+			stats.mutex.RLock()
 			test(t, stats.received[id] == 300,
 				"Expected count of updates for", id, "- 300, got", stats.received[id])
+			stats.mutex.RUnlock()
 		}
 	}
 
@@ -305,7 +313,9 @@ func (tp *testProxy) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if req.Method == "PUT" || req.Method == "POST" || req.Method == "DELETE" {
+		stats.mutex.Lock()
 		stats.received[tp.node]++
+		stats.mutex.Unlock()
 	}
 	w.Header().Add("Content-type", "application/json")
 	w.WriteHeader(http.StatusOK)
