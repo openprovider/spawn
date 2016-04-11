@@ -158,13 +158,13 @@ func (server *Server) Run(
 
 	// if used round-robin mode
 	if roundRobin {
-		stdlog.Println(server.Name, "will used 'round-robin' mode")
+		stdlog.Println(server.Name, "server is using 'round-robin' mode")
 		server.roundRobin = roundRobin
 	}
 
 	// if used by-priority mode
 	if byPriority {
-		stdlog.Println("Nodes will queried according to priority")
+		stdlog.Println("The nodes are operating according to priority")
 		server.byPriority = byPriority
 	}
 
@@ -177,7 +177,7 @@ func (server *Server) Run(
 	// Init the Nodes settings
 	if !server.Nodes.SetAll(nodes) {
 		status = server.Name + " is not loaded"
-		err = errors.New("The nodes settings in config have incorrect values")
+		err = errors.New("The config parameters for the nodes have incorrect values")
 		return
 	}
 
@@ -197,7 +197,7 @@ func (server *Server) Run(
 		}
 	}()
 
-	status = server.Name + " loaded successfully"
+	status = server.Name + " is loaded successfully"
 
 	return
 }
@@ -221,7 +221,7 @@ func (server *Server) Shutdown() (status string, err error) {
 	// sends a 'quit' signal
 	server.quit <- struct{}{}
 
-	status = server.Name + " server connections closed"
+	status = server.Name + " server connections are closed"
 	select {
 
 	// Exit by timeout if jobs have not done
@@ -267,7 +267,7 @@ func (server *Server) jobListener() {
 			// Recover routine
 			go server.jobListener()
 		} else {
-			stdlog.Println("Listener routine stoped")
+			stdlog.Println("Listener routine is stoped")
 			server.response <- struct{}{}
 		}
 	}()
@@ -437,10 +437,10 @@ func (server *Server) worker(q *queue) {
 			go server.worker(q)
 		} else {
 			q.response <- struct{}{}
-			stdlog.Println("Worker closed for", q.id)
+			stdlog.Println("Worker is closed for", q.id)
 		}
 	}()
-	stdlog.Println("Worker started for", q.id)
+	stdlog.Println("Worker is started for", q.id)
 	for {
 		select {
 		case task := <-q.task:
