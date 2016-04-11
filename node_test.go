@@ -21,7 +21,7 @@ func TestNodes(t *testing.T) {
 	server.responseTimeout = timeout
 
 	// start server worker, for the nodes testing
-	go server.manage()
+	go server.jobListener()
 
 	// load failed nodes with incorect host's names and port's values
 	nodes, err := loadFixtures("fixtures/failed_nodes.json")

@@ -16,6 +16,7 @@ import (
 	"os"
 	"regexp"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/takama/router"
@@ -52,7 +53,7 @@ const (
 
 // simplest logger, which initialized during starts of the application
 var (
-	stdlog = log.New(os.Stdout, "", log.Ldate|log.Ltime)
+	stdlog = log.New(os.Stdout, "", log.LstdFlags)
 	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime|log.Lshortfile)
 )
 
@@ -113,23 +114,23 @@ type HealthCheck struct {
 // NewServer creates a new server which contains the nodes/queues
 func NewServer(name string) (*Server, error) {
 
-	// Init the router
-	r := router.New()
-	r.PanicHandler = panicHandler
-	r.NotFound = notFound
-	r.Logger = logger
-	r.CustomHandler = baseHandler
-
 	// Init the Server
 	server := &Server{
 		Name:            name,
-		Router:          r,
+		Router:          router.New(),
 		responseTimeout: DefaultTimeout,
-		response:        make(chan struct{}),
 		job:             make(chan int, MaxSignals),
-		quit:            make(chan struct{}),
+		response:        make(chan struct{}, MaxSignals),
+		quit:            make(chan struct{}, 1),
 		transport:       http.DefaultTransport,
 	}
+
+	server.Router.PanicHandler = func(c *router.Control) {
+		c.Code(http.StatusInternalServerError).Body(c.Request)
+	}
+	server.Router.NotFound = notFound
+	server.Router.Logger = logger
+	server.Router.CustomHandler = server.baseHandler
 
 	// Create and init nodes bundle
 	server.Nodes = &NodeBundle{
@@ -171,7 +172,7 @@ func (server *Server) Run(
 	server.Nodes.update = make(chan nodeJob, MaxJobs)
 
 	// Starts the worker which manage server's jobs
-	go server.manage()
+	go server.jobListener()
 
 	// Init the Nodes settings
 	if !server.Nodes.SetAll(nodes) {
@@ -183,25 +184,7 @@ func (server *Server) Run(
 	// Init a health check settings
 	server.check = check
 
-	// The info handler returns a system status of the application
-	server.GET("/info", infoHandler)
-
-	// Lists methods, which display how to use API
-	server.GET("/list", displayAllMethods)
-	server.GET("/list/nodes", displayAllNodeMethods)
-	server.GET("/list/nodes/get", displayGetNodeMethods)
-	server.GET("/list/nodes/set", displaySetNodeMethods)
-	server.GET("/list/nodes/delete", displayDeleteNodeMethods)
-
-	// Init API methods for the Nodes
-	server.GET("/nodes/:host/:port", server.Nodes.getRecord)
-	server.GET("/nodes/:host", server.Nodes.getAllRecordsByHost)
-	server.GET("/nodes", server.Nodes.getAllRecords)
-	server.PUT("/nodes/:host/:port", server.Nodes.putRecord)
-	server.PUT("/nodes", server.Nodes.putAllRecords)
-	server.DELETE("/nodes/:host/:port", server.Nodes.deleteRecord)
-	server.DELETE("/nodes/:host", server.Nodes.deleteAllRecordsByHost)
-	server.DELETE("/nodes", server.Nodes.deleteAllRecords)
+	server.setupRoutes()
 
 	go server.Listen(apiHostPort)
 	go func() {
@@ -223,9 +206,9 @@ func (server *Server) Run(
 func (server *Server) Shutdown() (status string, err error) {
 
 	// Set timer to wait one minute
-	timeout := time.NewTimer(time.Second * 30)
+	timeout := time.NewTimer(time.Minute)
 
-	// a unwanted response sweeps if exist
+	// sweeps all responses if exist
 	for {
 		select {
 		case <-server.response:
@@ -238,41 +221,66 @@ func (server *Server) Shutdown() (status string, err error) {
 	// sends a 'quit' signal
 	server.quit <- struct{}{}
 
-	status = server.Name + " connections closed"
+	status = server.Name + " server connections closed"
 	select {
 
-	// Exit by timeout if jobs did not done
+	// Exit by timeout if jobs have not done
 	case <-timeout.C:
 		err = errors.New("timeout")
 		return
-	// Exit after all jobs done
+	// Exit after doing all jobs
 	case <-server.response:
 		return
 	}
 }
 
-// Manage routine which manage all jobs
-func (server *Server) manage() {
+func (server *Server) setupRoutes() {
+	// The info handler returns a system status of the application
+	server.GET("/info", infoHandler)
+
+	// Lists methods, which display how to use API
+	server.GET("/list", displayAllMethods)
+	server.GET("/list/nodes", displayAllNodeMethods)
+	server.GET("/list/nodes/get", displayGetNodeMethods)
+	server.GET("/list/nodes/set", displaySetNodeMethods)
+	server.GET("/list/nodes/delete", displayDeleteNodeMethods)
+
+	// Init API methods for the Nodes
+	server.GET("/nodes/:host/:port", server.Nodes.getRecord)
+	server.GET("/nodes/:host", server.Nodes.getAllRecordsByHost)
+	server.GET("/nodes", server.Nodes.getAllRecords)
+	server.PUT("/nodes/:host/:port", server.Nodes.putRecord)
+	server.PUT("/nodes", server.Nodes.putAllRecords)
+	server.DELETE("/nodes/:host/:port", server.Nodes.deleteRecord)
+	server.DELETE("/nodes/:host", server.Nodes.deleteAllRecordsByHost)
+	server.DELETE("/nodes", server.Nodes.deleteAllRecords)
+	server.OPTIONS("/nodes", optionsHandler)
+	server.OPTIONS("/nodes/:host", optionsHandler)
+	server.OPTIONS("/nodes/:host/:port", optionsHandler)
+}
+
+// jobListener routine which listen job signals and activate job controller
+func (server *Server) jobListener() {
 	defer func() {
 		if recovery := recover(); recovery != nil {
-			errlog.Println("Recovered in Manage routine", recovery)
+			errlog.Println("Recovered in job listener routine", recovery)
 			// Recover routine
-			go server.manage()
+			go server.jobListener()
 		} else {
-			stdlog.Println("Manage routine stoped")
+			stdlog.Println("Listener routine stoped")
 			server.response <- struct{}{}
 		}
 	}()
 	for {
 		select {
 		case job := <-server.job:
-			server.doJob(job)
+			server.jobController(job)
 			continue
 		default:
 		}
 		select {
 		case job := <-server.job:
-			server.doJob(job)
+			server.jobController(job)
 			continue
 		case <-server.quit:
 			return
@@ -280,11 +288,11 @@ func (server *Server) manage() {
 	}
 }
 
-// Do updates depended by the signal
-func (server *Server) doJob(signal int) {
+// jobController starts jobs depended from signal
+func (server *Server) jobController(signal int) {
 	defer func() {
 		if recovery := recover(); recovery != nil {
-			errlog.Println("Recovered in do job routine", recovery)
+			errlog.Println("Recovered in job controller routine", recovery)
 		}
 	}()
 	switch signal {
@@ -538,4 +546,24 @@ func (server *Server) dispatchRequest(host string, data []byte) (*http.Response,
 		return nil, err
 	}
 	return response, nil
+}
+
+func (server *Server) baseHandler(handle router.Handle) router.Handle {
+	return func(c *router.Control) {
+		if c.Get("pretty") != "true" {
+			c.CompactJSON(true)
+		}
+		if origin := c.Request.Header.Get("Origin"); origin != "" {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Access-Control-Allow-Credentials", "false")
+		}
+		if method := c.Request.Header.Get("Access-Control-Request-Method"); method != "" {
+			allowedMethods := server.Router.AllowedMethods(c.Request.URL.Path)
+			c.Writer.Header().Set("Access-Control-Allow-Methods", strings.Join(allowedMethods, ", "))
+		}
+		if headers := c.Request.Header.Get("Access-Control-Request-Headers"); headers != "" {
+			c.Writer.Header().Set("Access-Control-Allow-Headers", "content-type")
+		}
+		handle(c)
+	}
 }
