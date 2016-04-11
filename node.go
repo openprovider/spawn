@@ -463,8 +463,8 @@ func (bundle *NodeBundle) putRecord(c *router.Control) {
 	// Try to find a record
 	record, exists := bundle.records[host][port]
 
-	// Try to decode the record
-	if _, ok := decodeRecord(&record, c); !ok {
+	// Try to decode record
+	if !decodeRecord(&record, c) {
 		return
 	}
 
@@ -525,8 +525,8 @@ func (bundle *NodeBundle) putAllRecords(c *router.Control) {
 	var updates []Node
 	var results []Node
 
-	// Try to decode the records
-	body, ok := decodeRecord(&records, c)
+	// Try to decode records
+	buffer, ok := preDecodeRecords(&records, c)
 	if !ok {
 		return
 	}
@@ -553,15 +553,11 @@ func (bundle *NodeBundle) putAllRecords(c *router.Control) {
 	}
 
 	// Try to decode records
-	if !decodeRecords(body, &updates, c) {
+	if !postDecodeRecords(buffer, &updates, c) {
 		return
 	}
 
 	for _, update := range updates {
-		if update.Host == "" || update.Port == 0 {
-			continue
-		}
-
 		// Add record
 		bundle.update <- nodeJob{isUpdate: true, record: update}
 		results = append(results, update)

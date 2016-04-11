@@ -5,10 +5,12 @@
 package spawn
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"runtime"
@@ -33,41 +35,53 @@ func isAlphaNumeric(str string) bool {
 	return isAlphaNum
 }
 
-func decodeRecord(record interface{}, c *router.Control) (*[]byte, bool) {
-	body, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		c.Code(http.StatusBadRequest).Body(
-			data{
-				"success": false,
-				"error":   http.StatusBadRequest,
-				"message": "The body content is absent",
-				"info":    err.Error(),
-			})
-		return &body, false
-	}
-	if err := json.Unmarshal(body, &record); err != nil {
-		c.Code(http.StatusBadRequest).Body(
-			data{
-				"success": false,
-				"error":   http.StatusBadRequest,
-				"message": "Could not recognize parameters",
-				"info":    err.Error(),
-			})
-		return &body, false
+func decodeRecord(record interface{}, c *router.Control) bool {
+	decoder := json.NewDecoder(bufio.NewReader(c.Request.Body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&record); err != nil {
+		c.Code(http.StatusBadRequest).Body(data{
+			"success": false,
+			"error":   http.StatusBadRequest,
+			"message": "Could not recognize parameters",
+			"info":    err.Error(),
+		})
+		errlog.Println(err)
+		return false
 	}
 
-	return &body, true
+	return true
 }
 
-func decodeRecords(body *[]byte, records interface{}, c *router.Control) bool {
-	if err := json.Unmarshal(*body, &records); err != nil {
-		c.Code(http.StatusBadRequest).Body(
-			data{
-				"success": false,
-				"error":   http.StatusBadRequest,
-				"message": "Could not recognize parameters",
-				"info":    err.Error(),
-			})
+func preDecodeRecords(records interface{}, c *router.Control) (*bytes.Buffer, bool) {
+	buffer := bytes.NewBuffer(make([]byte, 0))
+	reader := io.TeeReader(bufio.NewReader(c.Request.Body), buffer)
+	defer c.Request.Body.Close()
+	decoder := json.NewDecoder(reader)
+	decoder.UseNumber()
+	if err := decoder.Decode(&records); err != nil {
+		c.Code(http.StatusBadRequest).Body(data{
+			"success": false,
+			"error":   http.StatusBadRequest,
+			"message": "Could not recognize parameters",
+			"info":    err.Error(),
+		})
+		errlog.Println(err)
+		return buffer, false
+	}
+	return buffer, true
+}
+
+func postDecodeRecords(buffer *bytes.Buffer, records interface{}, c *router.Control) bool {
+	decoder := json.NewDecoder(buffer)
+	decoder.UseNumber()
+	if err := decoder.Decode(&records); err != nil {
+		c.Code(http.StatusBadRequest).Body(data{
+			"success": false,
+			"error":   http.StatusBadRequest,
+			"message": "Could not recognize parameters",
+			"info":    err.Error(),
+		})
+		errlog.Println(err)
 		return false
 	}
 
