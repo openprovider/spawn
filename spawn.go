@@ -9,7 +9,7 @@ of applications.
 What's the idea? There are several applications, which are developed to provide their service
 through HTTP Rest API. But you have no idea how to provide failover processing and clustering mode for these
 applications, because they are not compatible with, etc. And here we go. The Spawn service will make this
-job instead of the whole bunch of services that must be configured and communicating with each other.
+job instead of the whole bunch of services that must be configured and communicating each other.
 
 Spawn Sync Service
 */
