@@ -1,4 +1,4 @@
-// Copyright 2015 Openprovider Authors. All rights reserved.
+// Copyright 2016 Openprovider Authors. All rights reserved.
 // Use of this source code is governed by a license
 // that can be found in the LICENSE file.
 
@@ -26,7 +26,7 @@ type queue struct {
 	quit     chan struct{}
 }
 
-// queueJob produce a task which contains query/response and status (done)
+// queueJob produces a task which contains query/response and status (done)
 type queueJob struct {
 	done   chan struct{}
 	query  chan []byte
@@ -39,7 +39,7 @@ type queueBundle struct {
 	records map[string]*queue
 }
 
-// check the queue, if it does not exist, create it
+// checks the queue, if it does not exist, creates it
 func (bundle *queueBundle) check(id string) (*queue, bool) {
 	bundle.mutex.Lock()
 	defer bundle.mutex.Unlock()
@@ -60,16 +60,16 @@ func (bundle *queueBundle) check(id string) (*queue, bool) {
 		return bundle.records[id], false
 	}
 
-	// if it exists already
+	// if it already exists
 	return bundle.records[id], true
 }
 
-// remove the queue and stops the worker
+// removes the queue and stops the worker
 func (bundle *queueBundle) remove(id string, timeout time.Duration) {
 	bundle.mutex.Lock()
 	defer bundle.mutex.Unlock()
 
-	// if a queue exists, the worker must be stoped and a queue must be deleted
+	// if a queue exists, the worker must be stopped and a queue must be deleted
 	if q, ok := bundle.records[id]; ok {
 
 		// if the worker is alive
@@ -105,15 +105,15 @@ func getResponse(q *queue, timeout time.Duration) bool {
 	q.ask <- struct{}{}
 
 	select {
-	// Exit by timeout if the response does not get (worker is not alive)
+	// If no response is received, should exit via timeout (worker is not alive)
 	case <-ticker.C:
-		// sweeps ask which sent before if exist
+		// sweeps ask which sent before (if exist)
 		select {
 		case <-q.ask:
 		default:
 		}
 		return false
-	// Exit after the response has been received
+	// After the response has been received, exit
 	case <-q.response:
 		return true
 	}

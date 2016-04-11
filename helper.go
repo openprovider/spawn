@@ -1,18 +1,21 @@
-// Copyright 2015 Openprovider Authors. All rights reserved.
+// Copyright 2016 Openprovider Authors. All rights reserved.
 // Use of this source code is governed by a license
 // that can be found in the LICENSE file.
 
 package spawn
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/takama/router"
 )
@@ -32,41 +35,53 @@ func isAlphaNumeric(str string) bool {
 	return isAlphaNum
 }
 
-func decodeRecord(record interface{}, c *router.Control) (*[]byte, bool) {
-	body, err := ioutil.ReadAll(c.Request.Body)
-	if err != nil {
-		c.Code(http.StatusBadRequest).Body(
-			data{
-				"success": false,
-				"error":   http.StatusBadRequest,
-				"message": "The body content is absent",
-				"info":    err.Error(),
-			})
-		return &body, false
-	}
-	if err := json.Unmarshal(body, &record); err != nil {
-		c.Code(http.StatusBadRequest).Body(
-			data{
-				"success": false,
-				"error":   http.StatusBadRequest,
-				"message": "Could not recognize parameters",
-				"info":    err.Error(),
-			})
-		return &body, false
+func decodeRecord(record interface{}, c *router.Control) bool {
+	decoder := json.NewDecoder(bufio.NewReader(c.Request.Body))
+	decoder.UseNumber()
+	if err := decoder.Decode(&record); err != nil {
+		c.Code(http.StatusBadRequest).Body(data{
+			"success": false,
+			"error":   http.StatusBadRequest,
+			"message": "Could not recognize parameters",
+			"info":    err.Error(),
+		})
+		errlog.Println(err)
+		return false
 	}
 
-	return &body, true
+	return true
 }
 
-func decodeRecords(body *[]byte, records interface{}, c *router.Control) bool {
-	if err := json.Unmarshal(*body, &records); err != nil {
-		c.Code(http.StatusBadRequest).Body(
-			data{
-				"success": false,
-				"error":   http.StatusBadRequest,
-				"message": "Could not recognize parameters",
-				"info":    err.Error(),
-			})
+func preDecodeRecords(records interface{}, c *router.Control) (*bytes.Buffer, bool) {
+	buffer := bytes.NewBuffer(make([]byte, 0))
+	reader := io.TeeReader(bufio.NewReader(c.Request.Body), buffer)
+	defer c.Request.Body.Close()
+	decoder := json.NewDecoder(reader)
+	decoder.UseNumber()
+	if err := decoder.Decode(&records); err != nil {
+		c.Code(http.StatusBadRequest).Body(data{
+			"success": false,
+			"error":   http.StatusBadRequest,
+			"message": "Could not recognize parameters",
+			"info":    err.Error(),
+		})
+		errlog.Println(err)
+		return buffer, false
+	}
+	return buffer, true
+}
+
+func postDecodeRecords(buffer *bytes.Buffer, records interface{}, c *router.Control) bool {
+	decoder := json.NewDecoder(buffer)
+	decoder.UseNumber()
+	if err := decoder.Decode(&records); err != nil {
+		c.Code(http.StatusBadRequest).Body(data{
+			"success": false,
+			"error":   http.StatusBadRequest,
+			"message": "Could not recognize parameters",
+			"info":    err.Error(),
+		})
+		errlog.Println(err)
 		return false
 	}
 
@@ -112,75 +127,79 @@ func checkAlphaNumeric(str string, c *router.Control) bool {
 }
 
 func couldNotBeZero(param string, c *router.Control) {
-	c.Code(http.StatusBadRequest).Body(
-		data{
-			"success": false,
-			"error":   http.StatusBadRequest,
-			"message": "The parameter '" + param + "' could not be zero value",
-			"info":    "Please apply a non-zero value to the data",
-		})
+	message := "The parameter '" + param + "' could not be zero value"
+	c.Code(http.StatusBadRequest).Body(data{
+		"success": false,
+		"error":   http.StatusBadRequest,
+		"message": message,
+		"info":    "Please apply a non-zero value to the data",
+	})
+	errlog.Println(message)
 }
 
 func couldNotBeEmpty(param string, c *router.Control) {
-	c.Code(http.StatusBadRequest).Body(
-		data{
-			"success": false,
-			"error":   http.StatusBadRequest,
-			"message": "The parameter '" + param + "' could not be empty",
-			"info":    "Please apply a non-empty value to the data",
-		})
+	message := "The parameter '" + param + "' could not be empty"
+	c.Code(http.StatusBadRequest).Body(data{
+		"success": false,
+		"error":   http.StatusBadRequest,
+		"message": message,
+		"info":    "Please apply a non-empty value to the data",
+	})
+	errlog.Println(message)
 }
 
 func notRecognizedParameterError(param string, err error, c *router.Control) {
-	c.Code(http.StatusBadRequest).Body(
-		data{
-			"success": false,
-			"error":   http.StatusBadRequest,
-			"message": "Could not recognize " + param + " parameter",
-			"info":    err.Error(),
-		})
+	message := "Could not recognize " + strings.Trim(param, " ") + " parameter"
+	c.Code(http.StatusBadRequest).Body(data{
+		"success": false,
+		"error":   http.StatusBadRequest,
+		"message": message,
+		"info":    err.Error(),
+	})
+	errlog.Println(message, err.Error())
 }
 
 func recordNotFound(c *router.Control) {
-	c.Code(http.StatusNotFound).Body(
-		data{
-			"success": false,
-			"error":   http.StatusNotFound,
-			"message": "Record(s) not found",
-			"info":    "Please add a record(s) before using",
-		})
+	message := "Record(s) not found"
+	c.Code(http.StatusNotFound).Body(data{
+		"success": false,
+		"error":   http.StatusNotFound,
+		"message": message,
+		"info":    "Please add a record(s) before using",
+	})
+	errlog.Println(message)
 }
 
 func notFound(c *router.Control) {
-	c.Code(http.StatusNotFound).Body(
-		data{
-			"Message": data{
-				"Error":       "Method not found",
-				"Information": "Please see list of the methods by using /list",
-			},
-		})
+	message := "Method not found for " + c.Request.URL.Path
+	c.Code(http.StatusNotFound).Body(data{
+		"Message": data{
+			"Error":       message,
+			"Information": "Please see list of the methods by using /list",
+		},
+	})
+	errlog.Println(message)
 }
 
 func infoHandler(c *router.Control) {
 	host, _ := os.Hostname()
 	m := new(runtime.MemStats)
 	runtime.ReadMemStats(m)
-	c.Code(http.StatusOK).Body(
-		data{
-			"Spawn Sync Service": data{
-				"Host": host,
-				"Runtime": data{
-					"Compiler": runtime.Version(),
-					"CPU":      runtime.NumCPU(),
-					"Memory":   fmt.Sprintf("%.2fMB", float64(m.Alloc)/(1<<(10*2))),
-					"Threads":  runtime.NumGoroutine(),
-				},
-				"Release": data{
-					"Number": VERSION,
-					"Date":   DATE,
-				},
+	c.Code(http.StatusOK).Body(data{
+		"Spawn Sync Service": data{
+			"Host": host,
+			"Runtime": data{
+				"Compiler": runtime.Version(),
+				"CPU":      runtime.NumCPU(),
+				"Memory":   fmt.Sprintf("%.2fMB", float64(m.Alloc)/(1<<(10*2))),
+				"Threads":  runtime.NumGoroutine(),
 			},
-		})
+			"Release": data{
+				"Number": VERSION,
+				"Date":   DATE,
+			},
+		},
+	})
 }
 
 func logger(c *router.Control) {
@@ -191,19 +210,6 @@ func logger(c *router.Control) {
 	stdlog.Println(remoteAddr, c.Request.Method, c.Request.URL.Path)
 }
 
-func baseHandler(handle router.Handle) router.Handle {
-	return func(c *router.Control) {
-		if c.Get("pretty") != "true" {
-			c.CompactJSON(true)
-		}
-		if origin := c.Request.Header.Get("Origin"); origin != "" {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		}
-		handle(c)
-	}
-}
-
-func panicHandler(c *router.Control) {
-	c.Code(http.StatusInternalServerError).Body(c.Request)
+func optionsHandler(c *router.Control) {
+	c.Code(http.StatusOK)
 }

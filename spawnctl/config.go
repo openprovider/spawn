@@ -1,4 +1,4 @@
-// Copyright 2015 Openprovider Authors. All rights reserved.
+// Copyright 2016 Openprovider Authors. All rights reserved.
 // Use of this source code is governed by a license
 // that can be found in the LICENSE file.
 
@@ -63,9 +63,9 @@ func newConfig() *Config {
 	flag.StringVar(&config.Host, "host", defaultHost, "host name or IP address")
 	flag.IntVar(&config.Port, "port", defaultPort, "port number")
 	flag.BoolVar(&config.QueryMode.RoundRobin, "round-robin",
-		config.QueryMode.RoundRobin, "use round-robin mode for querying of nodes")
+		config.QueryMode.RoundRobin, "use round-robin mode for querying of the nodes")
 	flag.BoolVar(&config.QueryMode.ByPriority, "by-priority",
-		config.QueryMode.ByPriority, "nodes will queried according to priority")
+		config.QueryMode.ByPriority, "nodes will be operating according to priority")
 	flag.DurationVar(&config.Check.Seconds, "check-sec",
 		defaultCheckSec, "check nodes every number of seconds")
 	flag.StringVar(&config.Check.URL, "check-url",

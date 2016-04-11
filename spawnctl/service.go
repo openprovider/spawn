@@ -1,4 +1,4 @@
-// Copyright 2015 Openprovider Authors. All rights reserved.
+// Copyright 2016 Openprovider Authors. All rights reserved.
 // Use of this source code is governed by a license
 // that can be found in the LICENSE file.
 
@@ -28,7 +28,7 @@ type Service struct {
 	daemon.Daemon
 }
 
-// New - Create a new service record
+// New - creates a new service record
 func newService(name, description string) (*Service, error) {
 	daemonInstance, err := daemon.New(name, description)
 	if err != nil {
@@ -38,7 +38,7 @@ func newService(name, description string) (*Service, error) {
 	return &Service{newConfig(), daemonInstance}, nil
 }
 
-// Run or manage the service
+// Run - manages the service
 func (service *Service) Run() (string, error) {
 
 	// if received any kind of command, do it
@@ -89,7 +89,7 @@ func (service *Service) Run() (string, error) {
 	}
 	stdlog.Println(status)
 
-	// Logs for what is host&port used
+	// Logs a which is host&port used
 	stdlog.Printf("%s started on %s\n", Description, serviceHostPort)
 	stdlog.Printf("API loaded on %s\n", apiHostPort)
 
