@@ -298,11 +298,6 @@ func (bundle *NodeBundle) updateRecords() {
 			return
 		}
 
-		// Checks if empty significant values
-		if update.record.Host == "" || update.record.Port == 0 {
-			continue
-		}
-
 		if update.isDelete {
 			queueID := fmt.Sprintf("%s:%d", update.record.Host, update.record.Port)
 			stdlog.Println("delete node", update.record.Host, update.record.Port)
