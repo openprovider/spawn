@@ -21,15 +21,15 @@ Node contains the node parameters:
 
 - Port is the port number,
 
-- Priority define node, which will be queried according to attribute of the priority.
-  Example of sorted priority values from highest to lowest (1,2,3,0,0,0,-1,-2,-3)
+- Priority defines a sequence, which will be operating according to attribute of the priority.
+  A example of sorted values by priority - from highest to lowest (1,2,3,0,0,0,-1,-2,-3)
   the priority '0' has neutral priority value between high and low,
 
-- Active is the status of the node.
-  If it set to false, the queue corresponded with the node will be deleted
-  and created if it set to true,
+- Active defines status of the node.
+  If it will be set to false, the queue which related with the node will be deleted
+  or it will be created otherwise
 
-- Maintenance mode used to stop the worker and accumulate updates in the queue.
+- Maintenance mode is using to stop the worker and accumulate updates in the queue.
   If maintenance mode set to false all updates will posted in the node.
 */
 type Node struct {
@@ -58,7 +58,7 @@ type nodeJob struct {
 	record   Node
 }
 
-// byPriority type defined speciallly for sorting by priority attribute
+// byPriority type defines speciallly for sorting by priority attribute
 type byPriority []Node
 
 func (bp byPriority) Len() int {
@@ -80,7 +80,7 @@ func (bp byPriority) Less(i, j int) bool {
 	return false
 }
 
-// Get - get one of the node record specified by host and port
+// Get - gets one of the node record specified by host and port
 func (bundle *NodeBundle) Get(host string, port uint64) (node Node, ok bool) {
 	// Lock the bundle for 'read' operation
 	bundle.mutex.RLock()
@@ -91,7 +91,7 @@ func (bundle *NodeBundle) Get(host string, port uint64) (node Node, ok bool) {
 	return
 }
 
-// GetAllByHost - get all the nodes records specified by host and sorted according to priority
+// GetAllByHost - gets all the nodes records specified by host and sorted according to priority
 func (bundle *NodeBundle) GetAllByHost(host string) (nodes []Node, total int) {
 	// Lock the bundle for 'read' operation
 	bundle.mutex.RLock()
@@ -110,7 +110,7 @@ func (bundle *NodeBundle) GetAllByHost(host string) (nodes []Node, total int) {
 	return
 }
 
-// GetAll - get all the nodes records sorted according to priority
+// GetAll - gets all the nodes records sorted according to priority
 func (bundle *NodeBundle) GetAll() (nodes []Node, total int) {
 	// Lock the bundle for 'read' operation
 	bundle.mutex.RLock()
@@ -196,7 +196,7 @@ func (bundle *NodeBundle) Delete(host string, port uint64) bool {
 	return true
 }
 
-// DeleteAllByHost - delete all the nodes records specified by host
+// DeleteAllByHost - deletes all the nodes records specified by host
 func (bundle *NodeBundle) DeleteAllByHost(host string) bool {
 	// Lock the bundle for checking record
 	bundle.mutex.RLock()
@@ -225,7 +225,7 @@ func (bundle *NodeBundle) DeleteAllByHost(host string) bool {
 	return true
 }
 
-// DeleteAll - delete all the nodes records
+// DeleteAll - deletes all the nodes records
 func (bundle *NodeBundle) DeleteAll() {
 	// Lock the bundle for the transaction processing
 	bundle.mutex.RLock()
@@ -246,12 +246,12 @@ func (bundle *NodeBundle) DeleteAll() {
 	bundle.job <- nodeJobSignal
 }
 
-// InitRing - init the nodes in the ring ('round-robin') and reset a pointer to the node
+// InitRing - inits the nodes in the ring ('round-robin') and resets a pointer to the node
 func (bundle *NodeBundle) InitRing() {
 	nodes, total := bundle.GetAll()
 	if bundle.Server.roundRobin && total > 1 {
 
-		// Lock the bundle for the transaction processing
+		// Locks the bundle for the transaction processing
 		bundle.mutex.Lock()
 		defer bundle.mutex.Unlock()
 
@@ -264,7 +264,7 @@ func (bundle *NodeBundle) InitRing() {
 
 }
 
-// CurrentFromRing get a current Node from the the ring ('round-robin')
+// CurrentFromRing gets a current Node from the the ring ('round-robin')
 func (bundle *NodeBundle) CurrentFromRing() (Node, bool) {
 	// Lock the bundle for 'read' operation
 	bundle.mutex.RLock()
@@ -274,7 +274,7 @@ func (bundle *NodeBundle) CurrentFromRing() (Node, bool) {
 	return node, ok
 }
 
-// TwistRing - set a pointer to the next node from the ring
+// TwistRing - sets a pointer to the next node from the ring
 func (bundle *NodeBundle) TwistRing() {
 	// Lock the bundle for the transaction processing
 	bundle.mutex.Lock()
@@ -283,17 +283,17 @@ func (bundle *NodeBundle) TwistRing() {
 	bundle.ring = bundle.ring.Next()
 }
 
-// updateRecords is method which does exclusive update/delete records
+// updateRecords is method which does exclusive update/delete of the records
 func (bundle *NodeBundle) updateRecords() {
 
-	// Lock the bundle for the transaction processing
+	// Locks the bundle for the transaction processing
 	bundle.mutex.Lock()
 	defer bundle.mutex.Unlock()
 
 	for {
 		update := <-bundle.update
 
-		// If the job done unlock the bundle
+		// If the job is done, unlocks the bundle
 		if update.done {
 			return
 		}
@@ -305,25 +305,25 @@ func (bundle *NodeBundle) updateRecords() {
 			if len(bundle.records[update.record.Host]) == 0 {
 				delete(bundle.records, update.record.Host)
 			}
-			// remove update channel
+			// removes update channel
 			bundle.queues.remove(queueID, bundle.Server.responseTimeout)
 		}
 		if update.isUpdate {
 			queueID := fmt.Sprintf("%s:%d", update.record.Host, update.record.Port)
 			stdlog.Println("update node", update.record.Host, update.record.Port)
-			// Check if host does not exist
+			// Checks if host does not exist
 			if _, ok := bundle.records[update.record.Host]; !ok {
 				bundle.records[update.record.Host] = make(map[uint64]Node)
 			}
 			bundle.records[update.record.Host][update.record.Port] = update.record
 
 			if update.record.Active {
-				// Check the queue, if the queue does not exist,
-				// create a new one and assign the worker for it
+				// Checks the queue, if the queue does not exist,
+				// creates a new one and assigns the worker for it
 				queue, ok := bundle.queues.check(queueID)
 				if !ok {
 					if !update.record.Maintenance {
-						// create the worker and assign it to queue
+						// creates the worker and assign it to the queue
 						go bundle.Server.worker(queue)
 					}
 				} else {
@@ -331,10 +331,10 @@ func (bundle *NodeBundle) updateRecords() {
 						// if the worker is alive
 						if getResponse(queue, bundle.Server.responseTimeout) {
 
-							// send a 'quit' command to the worker
+							// sends a 'quit' command to the worker
 							queue.quit <- struct{}{}
 
-							// get a response from the worker
+							// gets a response from the worker
 							<-queue.response
 						}
 					} else {
@@ -345,7 +345,7 @@ func (bundle *NodeBundle) updateRecords() {
 					}
 				}
 			} else {
-				// Remove a channel if it is not active
+				// Removes a channel if it is not active
 				// There are removing the worker also
 				bundle.queues.remove(queueID, bundle.Server.responseTimeout)
 			}
@@ -357,7 +357,7 @@ func (bundle *NodeBundle) updateRecords() {
 // HTTP request methods
 // --------------------
 
-// getRecord - get one of the node record specified by host and port
+// getRecord - gets one of the node record specified by host and port
 func (bundle *NodeBundle) getRecord(c *router.Control) {
 	c.UseTimer()
 
@@ -388,7 +388,7 @@ func (bundle *NodeBundle) getRecord(c *router.Control) {
 	c.Code(http.StatusOK).Body(result)
 }
 
-// getAllRecordsByHost - get all the nodes records wich contain only specified host
+// getAllRecordsByHost - gets all the nodes records wich contain only specified host
 func (bundle *NodeBundle) getAllRecordsByHost(c *router.Control) {
 	c.UseTimer()
 
@@ -414,7 +414,7 @@ func (bundle *NodeBundle) getAllRecordsByHost(c *router.Control) {
 	c.Code(http.StatusOK).Body(result)
 }
 
-// getAllRecords - get all the nodes records
+// getAllRecords - gets all the nodes records
 func (bundle *NodeBundle) getAllRecords(c *router.Control) {
 	c.UseTimer()
 
@@ -451,7 +451,7 @@ func (bundle *NodeBundle) putRecord(c *router.Control) {
 		return
 	}
 
-	// Lock the bundle for a transaction Node
+	// Locks the bundle for a transaction Node
 	bundle.mutex.RLock()
 	defer bundle.mutex.RUnlock()
 
@@ -463,7 +463,7 @@ func (bundle *NodeBundle) putRecord(c *router.Control) {
 		return
 	}
 
-	// Update/Create a decoded record
+	// Updates/Creates a decoded record
 	if exists {
 		if (record.Host != "" && record.Host != host) ||
 			(record.Port != 0 && record.Port != port) {
@@ -526,7 +526,7 @@ func (bundle *NodeBundle) putAllRecords(c *router.Control) {
 		return
 	}
 
-	// Lock the bundle for the transaction processing
+	// Locks the bundle for the transaction processing
 	bundle.mutex.RLock()
 	defer bundle.mutex.RUnlock()
 
@@ -558,7 +558,7 @@ func (bundle *NodeBundle) putAllRecords(c *router.Control) {
 		results = append(results, update)
 	}
 
-	// Job done - end of the transaction
+	// Job is done - end of the transaction
 	bundle.update <- nodeJob{done: true}
 	bundle.job <- nodeJobSignal
 
@@ -570,7 +570,7 @@ func (bundle *NodeBundle) putAllRecords(c *router.Control) {
 	c.Code(http.StatusAccepted).Body(result)
 }
 
-// deleteRecord delete one of the node record specified by host and port
+// deleteRecord deletes one of the node record specified by host and port
 func (bundle *NodeBundle) deleteRecord(c *router.Control) {
 	c.UseTimer()
 
@@ -594,7 +594,7 @@ func (bundle *NodeBundle) deleteRecord(c *router.Control) {
 	c.Code(http.StatusOK).Body(data{"success": true})
 }
 
-// deleteAllRecordsByHost delete all the nodes records wich contain only specified host
+// deleteAllRecordsByHost deletes all the nodes records wich contain only specified host
 func (bundle *NodeBundle) deleteAllRecordsByHost(c *router.Control) {
 	c.UseTimer()
 
@@ -612,7 +612,7 @@ func (bundle *NodeBundle) deleteAllRecordsByHost(c *router.Control) {
 	c.Code(http.StatusOK).Body(data{"success": true})
 }
 
-// deleteAllRecords delete all the nodes records
+// deleteAllRecords deletes all the nodes records
 func (bundle *NodeBundle) deleteAllRecords(c *router.Control) {
 	c.UseTimer()
 

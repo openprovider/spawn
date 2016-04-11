@@ -145,7 +145,7 @@ func NewServer(name string) (*Server, error) {
 }
 
 // Run the server, init the handlers, init the specified modes.
-// If transport http.RoundTripper is not defined used default transport.
+// If transport http.RoundTripper is not defined will be used default transport.
 // http.RoundTripper contains callback function which handle
 // all incoming requests and get responses/errors
 func (server *Server) Run(
@@ -259,7 +259,7 @@ func (server *Server) setupRoutes() {
 	server.OPTIONS("/nodes/:host/:port", optionsHandler)
 }
 
-// jobListener routine which listen job signals and activate job controller
+// jobListener is routine which listen job signals and activate job controller
 func (server *Server) jobListener() {
 	defer func() {
 		if recovery := recover(); recovery != nil {
@@ -267,7 +267,7 @@ func (server *Server) jobListener() {
 			// Recover routine
 			go server.jobListener()
 		} else {
-			stdlog.Println("Listener routine is stoped")
+			stdlog.Println("Listener routine is stopped")
 			server.response <- struct{}{}
 		}
 	}()
@@ -315,7 +315,7 @@ func (server *Server) RoundTrip(request *http.Request) (*http.Response, error) {
 	// Use HTTP scheme
 	request.URL.Scheme = protocolHTTP
 
-	// If requests should not be queued, get result immediately
+	// If requests could not be queued, get result immediately
 	if request.Method != methodPOST &&
 		request.Method != methodPUT &&
 		request.Method != methodDELETE {
@@ -326,7 +326,7 @@ func (server *Server) RoundTrip(request *http.Request) (*http.Response, error) {
 	return server.processUpdate(request)
 }
 
-// call 'GET' and others requests to the node using defined mode
+// calls 'GET' and others requests to the node using defined mode
 func (server *Server) processReceive(request *http.Request) (*http.Response, error) {
 	if server.roundRobin {
 
@@ -428,7 +428,7 @@ func (server *Server) processUpdate(request *http.Request) (*http.Response, erro
 	return response, errors.New("The nodes are not defined")
 }
 
-// worker receive a data from the queue and send it to the node
+// worker receives a data from the queue and send it to the node
 func (server *Server) worker(q *queue) {
 	defer func() {
 		if recovery := recover(); recovery != nil {
@@ -508,7 +508,7 @@ func (server *Server) doUpdate(q *queue) {
 	}
 }
 
-// check the node
+// checks the node
 func (server *Server) checkNode(host string) bool {
 	response, err := http.Get(protocolHTTP + "://" + host + server.check.URL)
 	if err != nil {
@@ -530,7 +530,7 @@ func (server *Server) checkNode(host string) bool {
 	return valid.MatchString(string(data))
 }
 
-// Reproduce request to specified node and capture response
+// Reproduces request to specified node and capture response
 func (server *Server) dispatchRequest(host string, data []byte) (*http.Response, error) {
 	reader := bufio.NewReader(bytes.NewBuffer(data))
 	request, err := http.ReadRequest(reader)
