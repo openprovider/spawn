@@ -1,5 +1,7 @@
 package auth
 
+import "time"
+
 // AuthGuest contains guest parameters
 type AuthGuest struct {
 	session map[string]*AuthInfo
