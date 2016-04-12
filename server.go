@@ -54,8 +54,8 @@ const (
 
 // simplest logger, which initialized during starts of the application
 var (
-	stdlog = log.New(os.Stdout, "[CORE]", log.LstdFlags)
-	errlog = log.New(os.Stderr, "[CORE:ERROR]", log.Ldate|log.Ltime|log.Lshortfile)
+	stdlog = log.New(os.Stdout, "[CORE]: ", log.LstdFlags)
+	errlog = log.New(os.Stderr, "[CORE:ERROR]: ", log.Ldate|log.Ltime|log.Lshortfile)
 )
 
 // Server Record

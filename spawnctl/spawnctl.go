@@ -24,8 +24,8 @@ const (
 
 // Init simplest logger
 var (
-	stdlog = log.New(os.Stdout, "[SETUP]", log.LstdFlags)
-	errlog = log.New(os.Stderr, "[SETUP:ERROR]", log.Ldate|log.Ltime)
+	stdlog = log.New(os.Stdout, "[SETUP]: ", log.LstdFlags)
+	errlog = log.New(os.Stderr, "[SETUP:ERROR]: ", log.Ldate|log.Ltime)
 )
 
 // Init CPU numbers, "Usage" helper
