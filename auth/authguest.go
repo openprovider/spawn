@@ -19,6 +19,9 @@ func (ag *AuthGuest) Login(username, password string) (token string, err error) 
 		ag.session[token] = &AuthInfo{
 			UID: username,
 		}
+		time.AfterFunc(time.Minute, func() {
+			ag.Logout(token)
+		})
 	}
 	return
 }
