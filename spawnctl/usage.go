@@ -35,6 +35,10 @@ Options:
   --check-sec=SECONDS    Check nodes every number of seconds
   --check-url=URL        URL to check nodes (/info, etc)
   --check-regexp=REGEXP  Regexp pattern to check nodes
+  --auth=TYPE            Auth type (LDAP, oAuth, etc)
+  --auth-expire=MINUTES  Auth expiration time (default: 30)
+  --auth-host=HOST       Auth service host name or IP address
+  --auth-port=PORT       Auth service port number
 `
 
 // Usage - get usage information

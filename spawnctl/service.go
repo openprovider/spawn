@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/openprovider/spawn"
+	"github.com/openprovider/spawn/auth"
 	"github.com/takama/daemon"
 )
 
@@ -75,6 +76,11 @@ func (service *Service) Run() (string, error) {
 	if err != nil {
 		return "Initialize service:", err
 	}
+	// Initialize auth service
+	authService, err := auth.NewAuth(&service.AuthEngine)
+	if err != nil {
+		return "Initialize authentication:", err
+	}
 	status, err := server.Run(
 		serviceHostPort,
 		apiHostPort,
@@ -83,6 +89,7 @@ func (service *Service) Run() (string, error) {
 		service.QueryMode.RoundRobin,
 		service.QueryMode.ByPriority,
 		service.Check,
+		authService,
 	)
 	if err != nil {
 		return status, err

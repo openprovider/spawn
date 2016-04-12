@@ -12,6 +12,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/openprovider/spawn/auth"
 )
 
 type testAnswer struct {
@@ -44,6 +46,8 @@ type testConfig struct {
 	} `json:"api"`
 
 	Nodes []Node `json:"nodes"`
+
+	AuthEngine auth.AuthConfig `json:"auth"`
 
 	FailedNodeID string `json:"failedNodeID"`
 }
@@ -83,9 +87,13 @@ func TestServer(t *testing.T) {
 	// run the server in testing mode
 	appHost := fmt.Sprintf("%s:%d", config.Host, config.Port)
 	apiHost := fmt.Sprintf("%s:%d", config.API.Host, config.API.Port)
+
+	// Initialize auth service
+	authService, err := auth.NewAuth(&config.AuthEngine)
+	test(t, err == nil, "Expected new auth service, got", authService, err)
 	status, err := server.Run(
 		appHost, apiHost, nil, config.Nodes,
-		true, true, HealthCheck{Seconds: 1},
+		true, true, HealthCheck{Seconds: 1}, authService,
 	)
 	test(t, err == nil, "Expected run the server, got", status, err)
 
