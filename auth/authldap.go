@@ -47,8 +47,8 @@ func (al *AuthLDAP) connect() error {
 				return err
 			}
 		}
+		stdlog.Println("LDAP Connection has opened")
 	}
-	stdlog.Println("LDAP Connection has opened")
 	return nil
 }
 
