@@ -9,8 +9,10 @@ import (
 	"encoding/json"
 	"flag"
 	"os"
+	"time"
 
 	"github.com/openprovider/spawn"
+	"github.com/openprovider/spawn/auth"
 )
 
 // Default values: path to config file, host, port, etc
@@ -23,6 +25,8 @@ const (
 	defaultCheckSec     = 10
 	defaultCheckURL     = "/"
 	defaultCheckPattern = ""
+
+	defaultAuthExpirationTime time.Duration = 30
 )
 
 // Config - Application configuration
@@ -49,11 +53,15 @@ type Config struct {
 	TestMode bool `json:"testMode"`
 
 	Nodes []spawn.Node `json:"nodes"`
+
+	AuthEngine auth.AuthConfig `json:"auth"`
 }
 
 // New - returns new config record initialized with default values
 func newConfig() *Config {
 	config := new(Config)
+	var authType string
+	var authExpirationTime int
 	flag.BoolVar(&config.ShowVersion, "version", false, "show version")
 	flag.BoolVar(&config.ShowVersion, "v", false, "show version")
 	flag.BoolVar(&config.TestMode, "t", config.TestMode, "")
@@ -75,6 +83,10 @@ func newConfig() *Config {
 	flag.StringVar(&config.API.Host, "api-host",
 		defaultAPIHost, "API host name or IP address")
 	flag.IntVar(&config.API.Port, "api-port", defaultPort, "API port number")
+	flag.StringVar(&authType, "auth", "guest", "type of auth (LDAP, oAuth)")
+	flag.IntVar(&authExpirationTime, "auth-expire", int(defaultAuthExpirationTime), "expiration time of auth (default: 30)")
+	flag.StringVar(&config.AuthEngine.Host, "auth-host", "", "auth service host name or IP address")
+	flag.IntVar(&config.AuthEngine.Port, "auth-port", 0, "auth service port number")
 
 	return config
 }
@@ -93,6 +105,8 @@ func (config *Config) Load() error {
 	// Begin ignored flags
 	flags.StringVar(&path, "config", "", "")
 	// End ignored flags
+	authType := string(config.AuthEngine.Type)
+	authExpirationTime := int(config.AuthEngine.ExpirationTime)
 	flags.BoolVar(&config.TestMode, "t", config.TestMode, "")
 	flags.BoolVar(&config.TestMode, "test", config.TestMode, "")
 	flags.StringVar(&config.Host, "host", config.Host, "")
@@ -106,6 +120,13 @@ func (config *Config) Load() error {
 	flags.StringVar(&config.Check.Pattern, "check-regexp", config.Check.Pattern, "")
 	flags.StringVar(&config.API.Host, "api-host", config.API.Host, "")
 	flags.IntVar(&config.API.Port, "api-port", config.API.Port, "")
+	flags.StringVar(&authType, "auth", string(config.AuthEngine.Type), "")
+	flags.IntVar(&authExpirationTime, "auth-expire", int(config.AuthEngine.ExpirationTime), "")
+	flags.StringVar(&config.AuthEngine.Host, "auth-host", config.AuthEngine.Host, "")
+	flags.IntVar(&config.AuthEngine.Port, "auth-port", config.AuthEngine.Port, "")
+
+	config.AuthEngine.Type = auth.AuthType(authType)
+	config.AuthEngine.ExpirationTime = time.Duration(authExpirationTime)
 	flags.Parse(os.Args[1:])
 
 	return nil

@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/openprovider/spawn/auth"
 	"github.com/takama/router"
 )
 
@@ -53,8 +54,8 @@ const (
 
 // simplest logger, which initialized during starts of the application
 var (
-	stdlog = log.New(os.Stdout, "", log.LstdFlags)
-	errlog = log.New(os.Stderr, "", log.Ldate|log.Ltime|log.Lshortfile)
+	stdlog = log.New(os.Stdout, "[CORE]: ", log.LstdFlags)
+	errlog = log.New(os.Stderr, "[CORE:ERROR]: ", log.Ldate|log.Ltime|log.Lshortfile)
 )
 
 // Server Record
@@ -63,24 +64,18 @@ type Server struct {
 	// Server name/description
 	Name string
 
+	// Embeded router
+	*router.Router
+
 	// Node Bundle contains the Node records
 	Nodes *NodeBundle
 	// contains filtered or unexported fields
 
-	// Embeded router
-	*router.Router
+	// Entry Bundle contains the entry methods
+	entry *entryBundle
 
-	// Response signal channel
-	response chan struct{}
-
-	// responseTimeout is a timeout for worker's response
-	responseTimeout time.Duration
-
-	// job signal channel
-	job chan int
-
-	// quit signal channel
-	quit chan struct{}
+	// Queue Bundle contains the queue records
+	queues *queueBundle
 
 	// round robin mode
 	roundRobin bool
@@ -91,11 +86,20 @@ type Server struct {
 	// nodes health check
 	check HealthCheck
 
-	// Queue Bundle contains the queue records
-	queues *queueBundle
-
 	// Node connection transport
 	transport http.RoundTripper
+
+	// responseTimeout is a timeout for worker's response
+	responseTimeout time.Duration
+
+	// job signal channel
+	job chan int
+
+	// Response signal channel
+	response chan struct{}
+
+	// quit signal channel
+	quit chan struct{}
 }
 
 // HealthCheck contains parameters which used for checking node
@@ -118,11 +122,11 @@ func NewServer(name string) (*Server, error) {
 	server := &Server{
 		Name:            name,
 		Router:          router.New(),
+		transport:       http.DefaultTransport,
 		responseTimeout: DefaultTimeout,
 		job:             make(chan int, MaxSignals),
 		response:        make(chan struct{}, MaxSignals),
 		quit:            make(chan struct{}, 1),
-		transport:       http.DefaultTransport,
 	}
 
 	server.Router.PanicHandler = func(c *router.Control) {
@@ -154,6 +158,7 @@ func (server *Server) Run(
 	nodes []Node,
 	roundRobin, byPriority bool,
 	check HealthCheck,
+	authService auth.Auth,
 ) (status string, err error) {
 
 	// if used round-robin mode
@@ -183,6 +188,11 @@ func (server *Server) Run(
 
 	// Init a health check settings
 	server.check = check
+
+	// Init auth service
+	server.entry = &entryBundle{
+		Auth: authService,
+	}
 
 	server.setupRoutes()
 
@@ -245,6 +255,14 @@ func (server *Server) setupRoutes() {
 	server.GET("/list/nodes/set", displaySetNodeMethods)
 	server.GET("/list/nodes/delete", displayDeleteNodeMethods)
 
+	// Entry methods
+	server.POST("/login", server.entry.login)
+	server.GET("/login/:token", server.entry.info)
+	server.DELETE("/logout/:token", server.entry.logout)
+	server.OPTIONS("/login", optionsHandler)
+	server.OPTIONS("/login/:token", optionsHandler)
+	server.OPTIONS("/logout/:token", optionsHandler)
+
 	// Init API methods for the Nodes
 	server.GET("/nodes/:host/:port", server.Nodes.getRecord)
 	server.GET("/nodes/:host", server.Nodes.getAllRecordsByHost)
@@ -283,6 +301,7 @@ func (server *Server) jobListener() {
 			server.jobController(job)
 			continue
 		case <-server.quit:
+			server.entry.Close()
 			return
 		}
 	}
