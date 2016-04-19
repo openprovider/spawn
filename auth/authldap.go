@@ -15,6 +15,8 @@ type AuthLDAP struct {
 	session map[string]*AuthInfo
 }
 
+var DefaultExpiration = 60 * time.Minute
+
 // NewAuthLDAP creates new LDAP connection
 func NewAuthLDAP(config *AuthConfig) (*AuthLDAP, error) {
 	al := &AuthLDAP{
@@ -31,6 +33,7 @@ func NewAuthLDAP(config *AuthConfig) (*AuthLDAP, error) {
 func (al *AuthLDAP) connect() error {
 	if al.conn == nil {
 		var err error
+		ldap.DefaultTimeout = 15 * time.Second
 		link := fmt.Sprintf("%s:%d", al.config.Host, al.config.Port)
 		if al.config.Settings.UseSSL {
 			al.conn, err = ldap.DialTLS("tcp", link, &tls.Config{InsecureSkipVerify: false})
@@ -48,12 +51,26 @@ func (al *AuthLDAP) connect() error {
 			}
 		}
 		stdlog.Println("LDAP Connection has opened")
+		// set expiration for LDAP connection
+		time.AfterFunc(DefaultExpiration, func() {
+			if al.conn != nil {
+				al.conn.Close()
+				al.conn = nil
+				stdlog.Println("Closing of LDAP connection due to time expiration")
+			}
+		})
 	}
 	return nil
 }
 
 // Login create secure connection by username & password
 func (al *AuthLDAP) Login(username, password string) (token string, err error) {
+	defer func() {
+		if recovery := recover(); recovery != nil {
+			errlog.Println("Method 'Login' has been recovered:", recovery)
+			err = fmt.Errorf("%s", recovery)
+		}
+	}()
 	if err = al.connect(); err != nil {
 		errlog.Println("Could not connect to LDAP server:", err)
 		return
@@ -69,7 +86,16 @@ func (al *AuthLDAP) Login(username, password string) (token string, err error) {
 	if err != nil {
 		al.conn.Close()
 		al.conn = nil
-		return
+		stdlog.Println("LDAP Connection has been closed:", err)
+		if err = al.connect(); err != nil {
+			errlog.Println("Could not connect to LDAP server:", err)
+			return
+		}
+		result, err = al.conn.Search(request)
+		if err != nil {
+			errlog.Println("Could not connect to LDAP server:", err)
+			return
+		}
 	}
 	if len(result.Entries) < 1 {
 		errlog.Printf("Attempt to login as %s/%s", username, password)
@@ -133,6 +159,11 @@ func (al *AuthLDAP) Logout(token string) error {
 
 // Close disconects from auth server and logout all users
 func (al *AuthLDAP) Close() {
+	defer func() {
+		if recovery := recover(); recovery != nil {
+			errlog.Println("Method 'Close' has been recovered:", recovery)
+		}
+	}()
 	for key := range al.session {
 		delete(al.session, key)
 	}
