@@ -47,7 +47,7 @@ func (service *Service) Run() (string, error) {
 		command := os.Args[1]
 		switch command {
 		case "install":
-			return service.Install()
+			return service.Install(os.Args[2:]...)
 		case "remove":
 			return service.Remove()
 		case "start":
