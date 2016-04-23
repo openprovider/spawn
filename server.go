@@ -71,6 +71,9 @@ type Server struct {
 	Nodes *NodeBundle
 	// contains filtered or unexported fields
 
+	// Metrics Bundle contains the Metrics records
+	Metrics *MetricsBandle
+
 	// Entry Bundle contains the entry methods
 	entry *entryBundle
 
@@ -139,7 +142,15 @@ func NewServer(name string) (*Server, error) {
 	// Create and init nodes bundle
 	server.Nodes = &NodeBundle{
 		Server:  server,
+		update:  make(chan nodeJob, MaxJobs),
 		records: make(map[string]map[uint64]Node),
+	}
+
+	// Create and init the Metrics bundle
+	server.Metrics = &MetricsBandle{
+		Server:  server,
+		update:  make(chan metricsJob, MaxJobs),
+		records: make(map[string]Metrics),
 	}
 
 	// Create and init queues bundle
@@ -173,9 +184,6 @@ func (server *Server) Run(
 		server.byPriority = byPriority
 	}
 
-	// Init the Nodes update channel
-	server.Nodes.update = make(chan nodeJob, MaxJobs)
-
 	// Starts the worker which manage server's jobs
 	go server.jobListener()
 
@@ -193,6 +201,9 @@ func (server *Server) Run(
 	server.entry = &entryBundle{
 		Auth: authService,
 	}
+
+	// update metrics routine
+	go server.Metrics.updateMetrics()
 
 	server.setupRoutes()
 
@@ -275,6 +286,9 @@ func (server *Server) setupRoutes() {
 	server.OPTIONS("/nodes", optionsHandler)
 	server.OPTIONS("/nodes/:host", optionsHandler)
 	server.OPTIONS("/nodes/:host/:port", optionsHandler)
+
+	// Init API methods for the Metrics
+	server.GET("/metrics", server.Metrics.getMetrics)
 }
 
 // jobListener is routine which listen job signals and activate job controller
@@ -361,11 +375,19 @@ func (server *Server) processReceive(request *http.Request) (*http.Response, err
 				server.Nodes.TwistRing()
 
 				if server.checkNode(request.URL.Host) {
+
+					// set metrics
+					server.Metrics.SetMetrics(request.URL.Host, queuedMetric, request.Method)
+
 					response, err := server.transport.RoundTrip(request)
 					if err == nil {
+						// set metrics
+						server.Metrics.SetMetrics(request.URL.Host, successMetric, request.Method)
 						// If response is sucess, return
 						return response, nil
 					}
+					// set metrics
+					server.Metrics.SetMetrics(request.URL.Host, failureMetric, request.Method)
 					errlog.Println(err)
 				}
 			} else {
@@ -387,11 +409,19 @@ func (server *Server) processReceive(request *http.Request) (*http.Response, err
 					// The host is active and is not in maintenance
 					request.URL.Host = fmt.Sprintf("%s:%d", node.Host, node.Port)
 					if server.checkNode(request.URL.Host) {
+
+						// set metrics
+						server.Metrics.SetMetrics(request.URL.Host, queuedMetric, request.Method)
+
 						response, err := http.DefaultTransport.RoundTrip(request)
 						if err == nil {
+							// set metrics
+							server.Metrics.SetMetrics(request.URL.Host, successMetric, request.Method)
 							// If response is sucess, return
 							return response, nil
 						}
+						// set metrics
+						server.Metrics.SetMetrics(request.URL.Host, failureMetric, request.Method)
 						errlog.Println(err)
 					}
 				}
@@ -421,10 +451,14 @@ func (server *Server) processUpdate(request *http.Request) (*http.Response, erro
 
 				host = fmt.Sprintf("%s:%d", node.Host, node.Port)
 
+				// set metrics
+				server.Metrics.SetMetrics(host, queuedMetric, request.Method)
+
 				// create new queue job
 				job := &queueJob{
 					done:   done,
 					query:  make(chan []byte, 1),
+					method: request.Method,
 					answer: answer,
 				}
 				job.query <- proxyRequestData
@@ -510,10 +544,16 @@ func (server *Server) doUpdate(q *queue) {
 	data := <-job.query
 	if response, err := server.dispatchRequest(q.id, data); err != nil {
 
+		// set metrics
+		server.Metrics.SetMetrics(q.id, failureMetric, job.method)
+
 		// Job does not done
 		errlog.Println(err)
 
 	} else {
+
+		// set metrics
+		server.Metrics.SetMetrics(q.id, successMetric, job.method)
 
 		// job done
 		if len(job.done) == 0 {

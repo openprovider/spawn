@@ -30,6 +30,7 @@ type queue struct {
 type queueJob struct {
 	done   chan struct{}
 	query  chan []byte
+	method string
 	answer chan *http.Response
 }
 
