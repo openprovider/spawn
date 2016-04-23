@@ -3,6 +3,7 @@ package spawn
 import (
 	"net/http"
 	"sync"
+	"text/template"
 
 	"github.com/takama/router"
 )
@@ -114,5 +115,28 @@ func (bundle *MetricsBandle) getMetrics(c *router.Control) {
 	bundle.mutex.RLock()
 	defer bundle.mutex.RUnlock()
 
+	templ, err := template.New("metricsList").Parse(metricsList)
+	if err == nil {
+		c.Writer.Header().Add("Content-type", router.MIMETEXT)
+		c.Writer.WriteHeader(http.StatusOK)
+		templ.Execute(c.Writer, bundle.records)
+		return
+	}
+	errlog.Println(err)
 	c.Code(http.StatusOK).Body(bundle.records)
 }
+
+var metricsList = `
+{{ range $k, $v := . }}
+{{ $k }} 
++=======================================================================+
+| REQUESTS        |       GET       |       SET       |      DELETE     |
++=======================================================================+
+| SUCCESS         | {{ printf "% 15d" $v.Success.Get }} | {{ printf "% 15d" $v.Success.Set }} | {{ printf "% 15d" $v.Success.Delete }} |
++-----------------+-----------------+-----------------+-----------------+
+| FAILURE         | {{ printf "% 15d" $v.Failure.Get }} | {{ printf "% 15d" $v.Failure.Set }} | {{ printf "% 15d" $v.Failure.Delete }} |
++-----------------+-----------------+-----------------+-----------------+
+| QUEUED          | {{ printf "% 15d" $v.Queued.Get }} | {{ printf "% 15d" $v.Queued.Set }} | {{ printf "% 15d" $v.Queued.Delete }} |
++-----------------+-----------------+-----------------+-----------------+
+{{end}}
+`
