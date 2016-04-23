@@ -33,8 +33,6 @@ func NewAuthLDAP(config *AuthConfig) (*AuthLDAP, error) {
 
 // connect to LDAP server
 func (al *AuthLDAP) connect() error {
-	al.mutex.Lock()
-	defer al.mutex.Unlock()
 	if al.conn == nil {
 		var err error
 		ldap.DefaultTimeout = 15 * time.Second
@@ -57,11 +55,13 @@ func (al *AuthLDAP) connect() error {
 		stdlog.Println("LDAP Connection has opened")
 		// set expiration for LDAP connection
 		time.AfterFunc(DefaultExpiration, func() {
+			al.mutex.Lock()
 			if al.conn != nil {
 				al.conn.Close()
 				al.conn = nil
 				stdlog.Println("Closing of LDAP connection due to time expiration")
 			}
+			al.mutex.Unlock()
 		})
 	}
 	return nil
@@ -69,7 +69,9 @@ func (al *AuthLDAP) connect() error {
 
 // Login create secure connection by username & password
 func (al *AuthLDAP) Login(username, password string) (token string, err error) {
+	al.mutex.Lock()
 	defer func() {
+		al.mutex.Unlock()
 		if recovery := recover(); recovery != nil {
 			errlog.Println("Method 'Login' has been recovered:", recovery)
 			err = fmt.Errorf("%s", recovery)
@@ -88,10 +90,8 @@ func (al *AuthLDAP) Login(username, password string) (token string, err error) {
 	)
 	result, err := al.conn.Search(request)
 	if err != nil {
-		al.mutex.Lock()
 		al.conn.Close()
 		al.conn = nil
-		al.mutex.Unlock()
 		stdlog.Println("LDAP Connection has been closed:", err)
 		if err = al.connect(); err != nil {
 			errlog.Println("Could not connect to LDAP server:", err)
@@ -143,9 +143,7 @@ func (al *AuthLDAP) Login(username, password string) (token string, err error) {
 		}
 	}
 	token = GenerateSecureKey()
-	al.mutex.Lock()
 	al.session[token] = ai
-	al.mutex.Unlock()
 	time.AfterFunc(al.config.ExpirationTime*time.Minute, func() {
 		al.Logout(token)
 	})
@@ -188,6 +186,8 @@ func (al *AuthLDAP) Close() {
 
 // Info contains user detailed information
 func (al *AuthLDAP) Info(token string) *AuthInfo {
+	al.mutex.RLock()
+	defer al.mutex.RUnlock()
 	if info, exists := al.session[token]; exists {
 		return info
 	}
