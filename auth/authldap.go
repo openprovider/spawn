@@ -3,6 +3,7 @@ package auth
 import (
 	"crypto/tls"
 	"fmt"
+	"sync"
 	"time"
 
 	"gopkg.in/ldap.v2"
@@ -10,6 +11,7 @@ import (
 
 // AuthLDAP contains LDAP connection parameters
 type AuthLDAP struct {
+	mutex   sync.RWMutex
 	conn    *ldap.Conn
 	config  *AuthConfig
 	session map[string]*AuthInfo
@@ -31,6 +33,8 @@ func NewAuthLDAP(config *AuthConfig) (*AuthLDAP, error) {
 
 // connect to LDAP server
 func (al *AuthLDAP) connect() error {
+	al.mutex.Lock()
+	defer al.mutex.Unlock()
 	if al.conn == nil {
 		var err error
 		ldap.DefaultTimeout = 15 * time.Second
@@ -84,8 +88,10 @@ func (al *AuthLDAP) Login(username, password string) (token string, err error) {
 	)
 	result, err := al.conn.Search(request)
 	if err != nil {
+		al.mutex.Lock()
 		al.conn.Close()
 		al.conn = nil
+		al.mutex.Unlock()
 		stdlog.Println("LDAP Connection has been closed:", err)
 		if err = al.connect(); err != nil {
 			errlog.Println("Could not connect to LDAP server:", err)
@@ -137,7 +143,9 @@ func (al *AuthLDAP) Login(username, password string) (token string, err error) {
 		}
 	}
 	token = GenerateSecureKey()
+	al.mutex.Lock()
 	al.session[token] = ai
+	al.mutex.Unlock()
 	time.AfterFunc(al.config.ExpirationTime*time.Minute, func() {
 		al.Logout(token)
 	})
@@ -149,6 +157,8 @@ func (al *AuthLDAP) Login(username, password string) (token string, err error) {
 
 // Logout resets current authentication
 func (al *AuthLDAP) Logout(token string) error {
+	al.mutex.Lock()
+	defer al.mutex.Unlock()
 	if ai, exists := al.session[token]; exists {
 		delete(al.session, token)
 		stdlog.Println("user", ai.UID, "has logged out")
@@ -159,7 +169,9 @@ func (al *AuthLDAP) Logout(token string) error {
 
 // Close disconects from auth server and logout all users
 func (al *AuthLDAP) Close() {
+	al.mutex.Lock()
 	defer func() {
+		al.mutex.Unlock()
 		if recovery := recover(); recovery != nil {
 			errlog.Println("Method 'Close' has been recovered:", recovery)
 		}
